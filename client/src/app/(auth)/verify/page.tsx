@@ -4,6 +4,7 @@ import { createSupabaseBrowser } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/Button'
 import { FieldLabel } from '@/components/ui/FieldLabel'
+import { api } from '@/lib/api'
 import type { Role } from '@favour/shared'
 
 export default function VerifyPage() {
@@ -23,19 +24,34 @@ export default function VerifyPage() {
   async function handleVerify() {
     setLoading(true)
     setError(null)
-    const { data, error } = await supabase.auth.verifyOtp({ phone, token: otp, type: 'sms' })
-    setLoading(false)
-    if (error || !data.session) { setError(error?.message ?? 'Verification failed'); return }
 
-    const { data: { user } } = await supabase.auth.getUser()
-    setSession({
-      userId: user!.id,
-      role: (user!.user_metadata?.['role'] as Role) ?? 'CUSTOMER',
-      providerId: user!.user_metadata?.['providerId'] ?? null,
-      accessToken: data.session.access_token,
+    const { data, error: otpError } = await supabase.auth.verifyOtp({
+      phone,
+      token: otp,
+      type: 'sms',
     })
-    sessionStorage.removeItem('favour_phone')
-    window.location.href = '/feed'
+
+    if (otpError || !data.session) {
+      setLoading(false)
+      setError(otpError?.message ?? 'Verification failed')
+      return
+    }
+
+    try {
+      const me = await api.auth.me(data.session.access_token)
+      setSession({
+        userId: me.userId,
+        role: me.role as Role,
+        providerId: me.providerId,
+        accessToken: data.session.access_token,
+      })
+      sessionStorage.removeItem('favour_phone')
+      window.location.href = me.role === 'PROVIDER' ? '/dashboard' : '/feed'
+    } catch {
+      setError('Failed to load your account. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
