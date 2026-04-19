@@ -64,4 +64,10 @@ export const api = {
         headers: { Authorization: `Bearer ${token}` },
       }),
   },
+  auth: {
+    me: (token: string) =>
+      request<{ userId: string; role: string; providerId: string | null }>('/auth/me', {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+  },
 }
