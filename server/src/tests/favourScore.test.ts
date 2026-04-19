@@ -6,7 +6,7 @@ describe('FavourScoreService.calculate', () => {
     const score = FavourScoreService.calculate({
       responseRate: 1.0,
       completionRate: 1.0,
-      reviewAverage: 1.0,
+      reviewAverage: 5.0,
       recency: 1.0,
     })
     expect(score).toBeCloseTo(1.0)
