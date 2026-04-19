@@ -1,0 +1,16 @@
+{
+  "name": "favour.ph",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter client dev\" \"pnpm --filter server dev\"",
+    "build": "pnpm --filter @favour/shared build && pnpm --filter client build && pnpm --filter server build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.4.5"
+  },
+  "packageManager": "pnpm@10.32.1"
+}
