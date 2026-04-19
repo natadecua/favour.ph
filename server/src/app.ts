@@ -5,6 +5,7 @@ import websocket from '@fastify/websocket'
 import { prismaPlugin } from './plugins/prisma.js'
 import { redisPlugin } from './plugins/redis.js'
 import { authPlugin } from './plugins/auth.js'
+import { authRoutes } from './routes/auth.js'
 import { providerRoutes } from './routes/providers.js'
 import { bookingRoutes } from './routes/bookings.js'
 import { reviewRoutes } from './routes/reviews.js'
@@ -26,6 +27,7 @@ export function buildApp() {
   app.register(redisPlugin)
   app.register(authPlugin)
 
+  app.register(authRoutes, { prefix: '/auth' })
   app.register(providerRoutes, { prefix: '/providers' })
   app.register(bookingRoutes, { prefix: '/bookings' })
   app.register(reviewRoutes, { prefix: '/reviews' })
