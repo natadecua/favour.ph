@@ -1693,7 +1693,16 @@ git commit -m "chore(server): Dockerfile (Node 20 Alpine) and fly.toml (sin regi
 
 ---
 
-## Phase 6 — Client Foundation
+## Phase 6 — Client
+
+> **Design system rules (from `.impeccable.md`):**
+> - Fonts via `next/font/google` — never `@import` in CSS
+> - All tokens in `tailwind.config.ts` — never inline `style={}` hex values in components
+> - OKLCH for new palette additions; existing hex tokens are locked from the spec
+> - Touch targets ≥ 44×44px; WCAG 2.1 AA contrast throughout
+> - `prefers-reduced-motion` guard on all transitions
+> - No inline `style={}` in components — Tailwind classes only, with `cn()` helper for conditionals
+> - Integration tests: each page/route gets a Playwright or Fastify inject test, not unit tests
 
 ### Task 11: Next.js scaffold with Tailwind design tokens
 
@@ -1704,6 +1713,7 @@ git commit -m "chore(server): Dockerfile (Node 20 Alpine) and fly.toml (sin regi
 - Create: `client/tailwind.config.ts`
 - Create: `client/postcss.config.js`
 - Create: `client/src/styles/globals.css`
+- Create: `client/src/lib/cn.ts`
 - Create: `client/src/app/layout.tsx`
 
 - [ ] **Step 1: Initialise Next.js app**
@@ -1724,7 +1734,10 @@ Add to `dependencies` in `client/package.json`:
   "@supabase/supabase-js": "^2.43.1",
   "@tanstack/react-query": "^5.35.1",
   "zustand": "^4.5.2",
-  "browser-image-compression": "^2.0.2"
+  "browser-image-compression": "^2.0.2",
+  "clsx": "^2.1.1",
+  "tailwind-merge": "^2.3.0",
+  "lucide-react": "^0.378.0"
 }
 ```
 
@@ -1744,7 +1757,18 @@ Add `@favour/shared` path alias inside `compilerOptions.paths`:
 }
 ```
 
-- [ ] **Step 4: Update client/tailwind.config.ts**
+- [ ] **Step 4: Create client/src/lib/cn.ts**
+
+```typescript
+import { clsx, type ClassValue } from 'clsx'
+import { twMerge } from 'tailwind-merge'
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
+```
+
+- [ ] **Step 5: Update client/tailwind.config.ts**
 
 ```typescript
 import type { Config } from 'tailwindcss'
@@ -1761,7 +1785,7 @@ const config: Config = {
         'ink-700':           '#4B5563',
         'ink-400':           '#9CA3AF',
         'surface':           '#F3F4F6',
-        'border-default':    '#E5E7EB',
+        'border-ui':         '#E5E7EB',
         'verify-green':      '#007A33',
         'green-light':       '#ECFDF0',
         'danger':            '#D92121',
@@ -1769,9 +1793,9 @@ const config: Config = {
         'amber-light':       '#FFF8E7',
       },
       fontFamily: {
-        sans:  ['Manrope', 'sans-serif'],
-        body:  ['Figtree', 'sans-serif'],
-        mono:  ['JetBrains Mono', 'monospace'],
+        sans:  ['var(--font-manrope)', 'sans-serif'],
+        body:  ['var(--font-figtree)', 'sans-serif'],
+        mono:  ['var(--font-jetbrains)', 'monospace'],
       },
       borderRadius: {
         card:   '12px',
@@ -1781,6 +1805,16 @@ const config: Config = {
       },
       borderWidth: {
         DEFAULT: '1.5px',
+        ui:      '1.5px',
+      },
+      height: {
+        btn: '52px',
+      },
+      minHeight: {
+        touch: '44px',
+      },
+      minWidth: {
+        touch: '44px',
       },
     },
   },
@@ -1790,40 +1824,81 @@ const config: Config = {
 export default config
 ```
 
-- [ ] **Step 5: Update client/src/styles/globals.css**
+- [ ] **Step 6: Update client/src/styles/globals.css**
 
 ```css
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700;800&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-* {
-  box-sizing: border-box;
+/* Fonts injected via next/font — no @import needed here */
+
+@layer base {
+  * { box-sizing: border-box; }
+  ::-webkit-scrollbar { display: none; }
+
+  /* Respect reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 }
 
-::-webkit-scrollbar {
-  display: none;
+@layer utilities {
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 ```
 
-- [ ] **Step 6: Create client/src/app/layout.tsx**
+- [ ] **Step 7: Create client/src/app/layout.tsx**
+
+Use `next/font/google` — never `@import` in CSS. This avoids render-blocking font requests.
 
 ```tsx
 import type { Metadata } from 'next'
+import { Manrope, Figtree } from 'next/font/google'
+import localFont from 'next/font/local'
 import '@/styles/globals.css'
 import { Providers } from '@/components/Providers'
 
+const manrope = Manrope({
+  subsets: ['latin'],
+  weight: ['500', '600', '700', '800'],
+  variable: '--font-manrope',
+  display: 'swap',
+})
+
+const figtree = Figtree({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  variable: '--font-figtree',
+  display: 'swap',
+})
+
+// JetBrains Mono not on next/font — use Google Fonts variable
+// Use next/font/google when available, fallback to CSS variable
+import { JetBrains_Mono } from 'next/font/google'
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  weight: ['500', '700', '800'],
+  variable: '--font-jetbrains',
+  display: 'swap',
+})
+
 export const metadata: Metadata = {
-  title: 'Favour.ph',
-  description: 'Book trusted home pros near you',
+  title: 'Favour.ph — Book trusted home pros near you',
+  description: 'Find verified home service providers in Batangas City. Aircon, plumbing, electrical, cleaning and more.',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body style={{ background: '#F3F4F6', minHeight: '100dvh' }}>
+    <html lang="en" className={`${manrope.variable} ${figtree.variable} ${jetbrainsMono.variable}`}>
+      <body className="bg-surface min-h-dvh">
         <Providers>{children}</Providers>
       </body>
     </html>
@@ -1831,11 +1906,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 ```
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add client/
-git commit -m "feat(client): Next.js 14 scaffold with Favour design tokens"
+git commit -m "feat(client): Next.js 14 scaffold with Favour design tokens and next/font"
 ```
 
 ---
@@ -1938,7 +2013,7 @@ import { QueryClient } from '@tanstack/react-query'
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 2,   // 2 minutes
+      staleTime: 1000 * 60 * 2,
       retry: 1,
     },
   },
@@ -2003,7 +2078,14 @@ git commit -m "feat(client): Supabase client, API wrapper, TanStack Query, Zusta
 
 ---
 
-### Task 13: Base UI components (from mock)
+### Task 13: Base UI components — Tailwind-first, no inline style hex values
+
+**Design rules enforced here:**
+- All colours via Tailwind tokens (`bg-favour-blue`, `text-ink-700`), not inline hex
+- `cn()` helper for conditional class merging
+- All interactive elements have `min-h-touch min-w-touch` (44px WCAG touch targets)
+- `aria-label` on icon-only buttons
+- Transitions guarded by `motion-safe:` Tailwind variant
 
 **Files:**
 - Create: `client/src/components/ui/Pill.tsx`
@@ -2012,28 +2094,42 @@ git commit -m "feat(client): Supabase client, API wrapper, TanStack Query, Zusta
 - Create: `client/src/components/ui/FavourScoreBanner.tsx`
 - Create: `client/src/components/ui/Button.tsx`
 - Create: `client/src/components/ui/BookingStatusBadge.tsx`
+- Create: `client/src/components/ui/FieldLabel.tsx`
+- Create: `client/src/components/ui/Input.tsx`
 
 - [ ] **Step 1: Create client/src/components/ui/Pill.tsx**
 
 ```tsx
+import { cn } from '@/lib/cn'
+
 type PillColor = 'blue' | 'green' | 'amber' | 'dark'
 
-const styles: Record<PillColor, { bg: string; text: string; border: string }> = {
-  blue:  { bg: '#EEF3FF', text: '#0047CC', border: '#D0DEFF' },
-  green: { bg: '#ECFDF0', text: '#007A33', border: '#A7F3C0' },
-  amber: { bg: '#FFF8E7', text: '#B36B00', border: '#FCD34D' },
-  dark:  { bg: '#F3F4F6', text: '#111827', border: '#E5E7EB' },
+const colorClasses: Record<PillColor, string> = {
+  blue:  'bg-favour-blue-light text-favour-blue border-favour-blue-mid',
+  green: 'bg-green-light text-verify-green border-[#A7F3C0]',
+  amber: 'bg-amber-light text-amber border-[#FCD34D]',
+  dark:  'bg-surface text-favour-dark border-border-ui',
 }
 
-export function Pill({ children, color = 'blue' }: { children: React.ReactNode; color?: PillColor }) {
-  const s = styles[color]
+export function Pill({
+  children,
+  color = 'blue',
+  className,
+}: {
+  children: React.ReactNode
+  color?: PillColor
+  className?: string
+}) {
   return (
-    <span className="font-mono" style={{
-      display: 'inline-flex', alignItems: 'center', height: 26,
-      padding: '0 10px', borderRadius: 6, fontSize: 11, fontWeight: 700,
-      letterSpacing: '0.04em', background: s.bg, color: s.text,
-      border: `1.5px solid ${s.border}`,
-    }}>
+    <span
+      className={cn(
+        'font-mono inline-flex items-center h-[26px] px-[10px]',
+        'rounded-pill text-[11px] font-bold tracking-[0.04em]',
+        'border border-ui',
+        colorClasses[color],
+        className
+      )}
+    >
       {children}
     </span>
   )
@@ -2043,26 +2139,30 @@ export function Pill({ children, color = 'blue' }: { children: React.ReactNode; 
 - [ ] **Step 2: Create client/src/components/ui/StatBox.tsx**
 
 ```tsx
+import { cn } from '@/lib/cn'
+
 export function StatBox({
-  label, value, sub, accent,
+  label,
+  value,
+  sub,
+  accentClass,
 }: {
   label: string
   value: string | number
   sub?: string
-  accent?: string
+  accentClass?: string
 }) {
   return (
-    <div style={{
-      flex: 1, background: '#fff', border: '1.5px solid #E5E7EB',
-      borderRadius: 10, padding: '12px 10px', textAlign: 'center',
-    }}>
-      <div className="font-mono" style={{ fontSize: 20, fontWeight: 800, color: accent ?? '#111827', letterSpacing: '-0.02em' }}>
+    <div className="flex-1 bg-white border border-ui rounded-[10px] p-3 text-center">
+      <div className={cn('font-mono text-[20px] font-extrabold tracking-tight', accentClass ?? 'text-favour-dark')}>
         {value}
       </div>
-      <div className="font-sans" style={{ fontSize: 11, fontWeight: 700, color: '#4B5563', marginTop: 2 }}>
+      <div className="font-sans text-[11px] font-bold text-ink-700 mt-0.5">
         {label}
       </div>
-      {sub && <div className="font-body" style={{ fontSize: 10, color: '#9CA3AF', marginTop: 1 }}>{sub}</div>}
+      {sub && (
+        <div className="font-body text-[10px] text-ink-400 mt-px">{sub}</div>
+      )}
     </div>
   )
 }
@@ -2071,6 +2171,7 @@ export function StatBox({
 - [ ] **Step 3: Create client/src/components/ui/Button.tsx**
 
 ```tsx
+import { cn } from '@/lib/cn'
 import type { ButtonHTMLAttributes } from 'react'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -2078,19 +2179,28 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   fullWidth?: boolean
 }
 
-export function Button({ children, variant = 'primary', fullWidth, style, ...props }: ButtonProps) {
-  const base: React.CSSProperties = {
-    height: 52, borderRadius: 10, fontSize: 17, fontWeight: 800,
-    fontFamily: 'Manrope, sans-serif', cursor: 'pointer',
-    border: 'none', transition: 'opacity 0.15s',
-    width: fullWidth ? '100%' : undefined,
-  }
-  const variants: Record<string, React.CSSProperties> = {
-    primary: { background: '#0047CC', color: '#fff' },
-    ghost:   { background: 'transparent', color: '#0047CC', border: '1.5px solid #0047CC' },
-  }
+export function Button({
+  children,
+  variant = 'primary',
+  fullWidth,
+  className,
+  disabled,
+  ...props
+}: ButtonProps) {
   return (
-    <button style={{ ...base, ...variants[variant], ...style }} {...props}>
+    <button
+      disabled={disabled}
+      className={cn(
+        'h-btn rounded-btn font-sans text-[17px] font-extrabold cursor-pointer',
+        'touch-target motion-safe:transition-opacity duration-150',
+        'disabled:opacity-40 disabled:cursor-not-allowed',
+        variant === 'primary' && 'bg-favour-blue text-white border-0',
+        variant === 'ghost' && 'bg-transparent text-favour-blue border border-ui border-favour-blue',
+        fullWidth && 'w-full',
+        className
+      )}
+      {...props}
+    >
       {children}
     </button>
   )
@@ -2104,23 +2214,24 @@ import { Award, Star } from 'lucide-react'
 
 export function FavourScoreBanner({ score }: { score: number }) {
   return (
-    <div style={{
-      background: '#111827', borderRadius: 12, padding: '16px 20px',
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    }}>
+    <div
+      className="bg-favour-dark rounded-card p-4 flex items-center justify-between"
+      role="region"
+      aria-label={`Favour Score: ${score.toFixed(2)}`}
+    >
       <div>
-        <div className="font-mono" style={{ fontSize: 42, fontWeight: 800, color: '#fff', lineHeight: 1 }}>
+        <div className="font-mono text-[42px] font-extrabold text-white leading-none">
           {score.toFixed(2)}
         </div>
-        <div style={{ display: 'flex', gap: 2, marginTop: 6 }}>
+        <div className="flex gap-0.5 mt-1.5" aria-hidden="true">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Star key={i} size={14} color="#fff" fill="#fff" />
+            <Star key={i} size={14} className="text-white fill-white" />
           ))}
         </div>
       </div>
-      <div style={{ textAlign: 'right' }}>
-        <Award size={28} color="#0047CC" />
-        <div className="font-mono" style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', marginTop: 4, letterSpacing: '0.08em' }}>
+      <div className="text-right">
+        <Award size={28} className="text-favour-blue ml-auto" aria-hidden="true" />
+        <div className="font-mono text-[10px] font-bold text-ink-400 mt-1 tracking-[0.08em]">
           FAVOUR SCORE
         </div>
       </div>
@@ -2132,11 +2243,16 @@ export function FavourScoreBanner({ score }: { score: number }) {
 - [ ] **Step 5: Create client/src/components/ui/ServiceRow.tsx**
 
 ```tsx
+import { cn } from '@/lib/cn'
 import type { LucideIcon } from 'lucide-react'
 import { CheckCircle2 } from 'lucide-react'
 
 export function ServiceRow({
-  icon: Icon, name, price, selected, onSelect,
+  icon: Icon,
+  name,
+  price,
+  selected,
+  onSelect,
 }: {
   icon: LucideIcon
   name: string
@@ -2145,26 +2261,35 @@ export function ServiceRow({
   onSelect?: () => void
 }) {
   return (
-    <div onClick={onSelect} style={{
-      display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px',
-      border: `1.5px solid ${selected ? '#0047CC' : '#E5E7EB'}`,
-      borderRadius: 10, background: selected ? '#EEF3FF' : '#fff',
-      cursor: 'pointer',
-    }}>
-      <div style={{
-        width: 40, height: 40, borderRadius: 8, flexShrink: 0,
-        background: selected ? '#0047CC' : '#F3F4F6',
-        border: `1.5px solid ${selected ? '#0047CC' : '#E5E7EB'}`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>
-        <Icon size={18} color={selected ? '#fff' : '#4B5563'} />
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={selected}
+      className={cn(
+        'w-full flex items-center gap-3 px-4 py-[14px] touch-target',
+        'border border-ui rounded-[10px] text-left',
+        'motion-safe:transition-colors duration-150',
+        selected
+          ? 'border-favour-blue bg-favour-blue-light'
+          : 'border-border-ui bg-white'
+      )}
+    >
+      <div
+        className={cn(
+          'w-10 h-10 rounded-input shrink-0 flex items-center justify-center',
+          'border border-ui',
+          selected ? 'bg-favour-blue border-favour-blue' : 'bg-surface border-border-ui'
+        )}
+        aria-hidden="true"
+      >
+        <Icon size={18} className={selected ? 'text-white' : 'text-ink-700'} />
       </div>
-      <div style={{ flex: 1 }}>
-        <div className="font-sans" style={{ fontSize: 15, fontWeight: 600, color: '#111827' }}>{name}</div>
-        <div className="font-mono" style={{ fontSize: 12, fontWeight: 700, color: '#4B5563', marginTop: 2 }}>{price}</div>
+      <div className="flex-1 min-w-0">
+        <div className="font-sans text-[15px] font-semibold text-favour-dark">{name}</div>
+        <div className="font-mono text-[12px] font-bold text-ink-700 mt-0.5">{price}</div>
       </div>
-      {selected && <CheckCircle2 size={20} color="#0047CC" />}
-    </div>
+      {selected && <CheckCircle2 size={20} className="text-favour-blue shrink-0" />}
+    </button>
   )
 }
 ```
@@ -2189,13 +2314,47 @@ export function BookingStatusBadge({ status }: { status: BookingStatus }) {
 }
 ```
 
-- [ ] **Step 7: Install lucide-react**
+- [ ] **Step 7: Create client/src/components/ui/FieldLabel.tsx**
 
-```bash
-cd client && pnpm add lucide-react
+```tsx
+import { cn } from '@/lib/cn'
+
+export function FieldLabel({ children, htmlFor, className }: { children: React.ReactNode; htmlFor?: string; className?: string }) {
+  return (
+    <label
+      htmlFor={htmlFor}
+      className={cn('font-mono text-[11px] font-bold text-ink-400 tracking-[0.08em] block mb-1.5', className)}
+    >
+      {children}
+    </label>
+  )
+}
 ```
 
-- [ ] **Step 8: Typecheck**
+- [ ] **Step 8: Create client/src/components/ui/Input.tsx**
+
+```tsx
+import { cn } from '@/lib/cn'
+import type { InputHTMLAttributes } from 'react'
+
+export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <input
+      className={cn(
+        'w-full px-4 py-[14px] font-body text-[15px] text-favour-dark',
+        'bg-white border border-ui border-border-ui rounded-input',
+        'placeholder:text-ink-400 outline-none touch-target',
+        'focus:border-favour-blue focus:ring-1 focus:ring-favour-blue-mid',
+        'motion-safe:transition-colors duration-150',
+        className
+      )}
+      {...props}
+    />
+  )
+}
+```
+
+- [ ] **Step 9: Typecheck**
 
 ```bash
 cd client && pnpm tsc --noEmit
@@ -2203,16 +2362,23 @@ cd client && pnpm tsc --noEmit
 
 Expected: no errors.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
-git add client/src/components/ui/
-git commit -m "feat(client): base UI components (Pill, StatBox, Button, FavourScoreBanner, ServiceRow, BookingStatusBadge)"
+git add client/src/components/ui/ client/src/lib/cn.ts
+git commit -m "feat(client): Tailwind-first UI components with WCAG AA touch targets"
 ```
 
 ---
 
 ### Task 14: Auth pages
+
+**Design rules enforced here:**
+- Dark full-screen background on login (intentional, not default)
+- Font loaded via CSS variable from `next/font` — no inline `fontFamily`
+- All inputs use `<Input>` and `<FieldLabel>` components
+- Error messages use `role="alert"` for screen readers
+- No inline `style={}` except where Tailwind cannot express the value
 
 **Files:**
 - Create: `client/src/app/(auth)/login/page.tsx`
@@ -2225,6 +2391,7 @@ git commit -m "feat(client): base UI components (Pill, StatBox, Button, FavourSc
 import { useState } from 'react'
 import { createSupabaseBrowser } from '@/lib/supabase'
 import { Button } from '@/components/ui/Button'
+import { FieldLabel } from '@/components/ui/FieldLabel'
 import { ShieldCheck } from 'lucide-react'
 
 export default function LoginPage() {
@@ -2240,55 +2407,60 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithOtp({ phone: formatted })
     setLoading(false)
     if (error) { setError(error.message); return }
-    // store phone in sessionStorage for verify page
     sessionStorage.setItem('favour_phone', formatted)
     window.location.href = '/verify'
   }
 
   return (
-    <div style={{ minHeight: '100dvh', background: '#111827', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <div className="font-mono" style={{ fontSize: 28, fontWeight: 800, color: '#fff', letterSpacing: '0.08em', marginBottom: 40 }}>
-        FAVOUR<span style={{ color: '#0047CC' }}>.PH</span>
+    <main className="min-h-dvh bg-favour-dark flex flex-col items-center justify-center px-6 py-10">
+      <div className="font-mono text-[28px] font-extrabold text-white tracking-[0.08em] mb-10" aria-label="Favour.ph">
+        FAVOUR<span className="text-favour-blue">.PH</span>
       </div>
 
-      <div style={{ width: '100%', maxWidth: 380, background: '#fff', borderRadius: 16, padding: 28 }}>
-        <div className="font-sans" style={{ fontSize: 22, fontWeight: 800, color: '#111827', marginBottom: 6 }}>Sign in</div>
-        <div className="font-body" style={{ fontSize: 14, color: '#4B5563', marginBottom: 24 }}>
-          Enter your mobile number to receive a one-time code
-        </div>
+      <div className="w-full max-w-sm bg-white rounded-[16px] p-7">
+        <h1 className="font-sans text-[22px] font-extrabold text-favour-dark mb-1.5">Sign in</h1>
+        <p className="font-body text-[14px] text-ink-700 mb-6">
+          Enter your mobile number to receive a one-time code.
+        </p>
 
-        <div style={{ marginBottom: 16 }}>
-          <div className="font-mono" style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.08em', marginBottom: 6 }}>
-            MOBILE NUMBER
-          </div>
-          <div style={{ display: 'flex', border: '1.5px solid #E5E7EB', borderRadius: 8, overflow: 'hidden' }}>
-            <div className="font-mono" style={{ padding: '0 14px', background: '#F3F4F6', display: 'flex', alignItems: 'center', fontSize: 14, fontWeight: 700, color: '#4B5563', borderRight: '1.5px solid #E5E7EB' }}>
+        <div className="mb-4">
+          <FieldLabel htmlFor="phone">MOBILE NUMBER</FieldLabel>
+          <div className="flex border border-ui border-border-ui rounded-input overflow-hidden focus-within:border-favour-blue focus-within:ring-1 focus-within:ring-favour-blue-mid motion-safe:transition-colors duration-150">
+            <span
+              className="font-mono px-3.5 bg-surface flex items-center text-[14px] font-bold text-ink-700 border-r border-border-ui shrink-0"
+              aria-hidden="true"
+            >
               +63
-            </div>
+            </span>
             <input
+              id="phone"
               type="tel"
+              inputMode="numeric"
+              autoComplete="tel-national"
               value={phone}
-              onChange={e => setPhone(e.target.value)}
+              onChange={e => setPhone(e.target.value.replace(/\D/g, ''))}
               placeholder="9XX XXX XXXX"
-              style={{ flex: 1, padding: '14px 16px', border: 'none', outline: 'none', fontSize: 15, fontFamily: 'Figtree, sans-serif', background: '#fff' }}
+              className="flex-1 px-4 py-[14px] font-body text-[15px] text-favour-dark bg-white outline-none placeholder:text-ink-400"
             />
           </div>
         </div>
 
-        {error && <div style={{ color: '#D92121', fontSize: 13, marginBottom: 12 }}>{error}</div>}
+        {error && (
+          <p role="alert" className="font-body text-[13px] text-danger mb-3">
+            {error}
+          </p>
+        )}
 
         <Button fullWidth disabled={phone.length < 9 || loading} onClick={handleSend}>
           {loading ? 'Sending…' : 'Send Secure Code'}
         </Button>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 20, justifyContent: 'center' }}>
-          <ShieldCheck size={14} color="#9CA3AF" />
-          <span className="font-body" style={{ fontSize: 12, color: '#9CA3AF' }}>
-            We never share your number
-          </span>
+        <div className="flex items-center justify-center gap-2 mt-5">
+          <ShieldCheck size={14} className="text-ink-400 shrink-0" aria-hidden="true" />
+          <span className="font-body text-[12px] text-ink-400">We never share your number</span>
         </div>
       </div>
-    </div>
+    </main>
   )
 }
 ```
@@ -2301,6 +2473,7 @@ import { useState, useEffect } from 'react'
 import { createSupabaseBrowser } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/Button'
+import { FieldLabel } from '@/components/ui/FieldLabel'
 import type { Role } from '@favour/shared'
 
 export default function VerifyPage() {
@@ -2336,35 +2509,39 @@ export default function VerifyPage() {
   }
 
   return (
-    <div style={{ minHeight: '100dvh', background: '#F3F4F6', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <div style={{ width: '100%', maxWidth: 380, background: '#fff', borderRadius: 16, padding: 28 }}>
-        <div className="font-sans" style={{ fontSize: 22, fontWeight: 800, color: '#111827', marginBottom: 6 }}>Enter your code</div>
-        <div className="font-body" style={{ fontSize: 14, color: '#4B5563', marginBottom: 24 }}>
-          Sent to <strong>{phone}</strong>
-        </div>
+    <main className="min-h-dvh bg-surface flex flex-col items-center justify-center px-6 py-10">
+      <div className="w-full max-w-sm bg-white rounded-[16px] p-7">
+        <h1 className="font-sans text-[22px] font-extrabold text-favour-dark mb-1.5">Enter your code</h1>
+        <p className="font-body text-[14px] text-ink-700 mb-6">
+          Sent to <strong className="font-semibold text-favour-dark">{phone}</strong>
+        </p>
 
-        <div style={{ marginBottom: 16 }}>
-          <div className="font-mono" style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.08em', marginBottom: 6 }}>
-            6-DIGIT CODE
-          </div>
+        <div className="mb-4">
+          <FieldLabel htmlFor="otp">6-DIGIT CODE</FieldLabel>
           <input
+            id="otp"
             type="text"
             maxLength={6}
             inputMode="numeric"
+            autoComplete="one-time-code"
             value={otp}
             onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
             placeholder="000000"
-            style={{ width: '100%', padding: '14px 16px', border: '1.5px solid #E5E7EB', borderRadius: 8, fontSize: 24, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, letterSpacing: '0.3em', outline: 'none', textAlign: 'center' }}
+            className="w-full px-4 py-[14px] font-mono text-[24px] font-bold text-favour-dark tracking-[0.3em] text-center bg-white border border-ui border-border-ui rounded-input outline-none focus:border-favour-blue focus:ring-1 focus:ring-favour-blue-mid motion-safe:transition-colors duration-150"
           />
         </div>
 
-        {error && <div style={{ color: '#D92121', fontSize: 13, marginBottom: 12 }}>{error}</div>}
+        {error && (
+          <p role="alert" className="font-body text-[13px] text-danger mb-3">
+            {error}
+          </p>
+        )}
 
         <Button fullWidth disabled={otp.length < 6 || loading} onClick={handleVerify}>
           {loading ? 'Verifying…' : 'Confirm Code'}
         </Button>
       </div>
-    </div>
+    </main>
   )
 }
 ```
@@ -2373,19 +2550,28 @@ export default function VerifyPage() {
 
 ```bash
 git add client/src/app/\(auth\)/
-git commit -m "feat(client): login and OTP verify pages (Supabase phone auth)"
+git commit -m "feat(client): login and OTP verify pages — Tailwind-first, WCAG AA"
 ```
 
 ---
 
 ### Task 15: Customer pages — feed, provider profile, booking
 
+**Design rules enforced here:**
+- No inline hex `style={}` — Tailwind only
+- Empty state on feed teaches the interface ("No providers found for this category yet. Try All.")
+- Loading skeleton on feed (Suspense boundary) instead of blank flash
+- Provider profile sticky CTA is in a `<footer>` for semantics
+- All `<Link>` wrappers have accessible text
+
 **Files:**
 - Create: `client/src/app/(customer)/feed/page.tsx`
+- Create: `client/src/app/(customer)/feed/loading.tsx`
 - Create: `client/src/app/(customer)/providers/[id]/page.tsx`
 - Create: `client/src/app/(customer)/book/[providerId]/page.tsx`
 - Create: `client/src/app/(customer)/bookings/[id]/page.tsx`
 - Create: `client/src/components/providers/ProviderCard.tsx`
+- Create: `client/src/components/providers/ProviderCardSkeleton.tsx`
 - Create: `client/src/components/bookings/BookingConfirmed.tsx`
 
 - [ ] **Step 1: Create client/src/components/providers/ProviderCard.tsx**
@@ -2398,38 +2584,41 @@ import { Star, MapPin } from 'lucide-react'
 
 export function ProviderCard({ provider }: { provider: ProviderSummary }) {
   return (
-    <Link href={`/providers/${provider.id}`} style={{ textDecoration: 'none' }}>
-      <div style={{ background: '#fff', border: '1.5px solid #E5E7EB', borderRadius: 12, padding: 16, display: 'flex', gap: 14 }}>
-        <div style={{
-          width: 56, height: 56, borderRadius: 10, background: '#F3F4F6', flexShrink: 0,
-          backgroundImage: provider.photo ? `url(${provider.photo})` : undefined,
-          backgroundSize: 'cover', backgroundPosition: 'center',
-        }} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <span className="font-sans" style={{ fontSize: 16, fontWeight: 800, color: '#111827' }}>
-              {provider.displayName}
-            </span>
-            {provider.isVerified && (
-              <Pill color="green">✓ VERIFIED</Pill>
-            )}
-          </div>
-          <div className="font-body" style={{ fontSize: 13, color: '#4B5563', marginBottom: 8 }}>
-            {provider.topService?.name ?? '—'}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {provider.favourScore !== null && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Star size={13} color="#0047CC" fill="#0047CC" />
-                <span className="font-mono" style={{ fontSize: 12, fontWeight: 700, color: '#0047CC' }}>
-                  {provider.favourScore.toFixed(2)}
-                </span>
-              </div>
-            )}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <MapPin size={12} color="#9CA3AF" />
-              <span className="font-mono" style={{ fontSize: 11, color: '#9CA3AF' }}>{provider.city}</span>
+    <Link
+      href={`/providers/${provider.id}`}
+      className="block bg-white border border-ui border-border-ui rounded-card p-4 flex gap-3.5 no-underline motion-safe:transition-colors duration-150 hover:border-favour-blue-mid active:bg-surface"
+      aria-label={`View ${provider.displayName}'s profile`}
+    >
+      <div
+        className="w-14 h-14 rounded-[10px] bg-surface shrink-0 bg-cover bg-center"
+        style={provider.photo ? { backgroundImage: `url(${provider.photo})` } : undefined}
+        role="img"
+        aria-label={provider.photo ? `${provider.displayName} photo` : 'No photo'}
+      />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="font-sans text-[16px] font-extrabold text-favour-dark truncate">
+            {provider.displayName}
+          </span>
+          {provider.isVerified && (
+            <Pill color="green" className="shrink-0">✓ VERIFIED</Pill>
+          )}
+        </div>
+        <div className="font-body text-[13px] text-ink-700 mb-2 truncate">
+          {provider.topService?.name ?? 'General services'}
+        </div>
+        <div className="flex items-center gap-2.5">
+          {provider.favourScore !== null && (
+            <div className="flex items-center gap-1" aria-label={`Favour Score ${provider.favourScore.toFixed(2)}`}>
+              <Star size={13} className="text-favour-blue fill-favour-blue" aria-hidden="true" />
+              <span className="font-mono text-[12px] font-bold text-favour-blue">
+                {provider.favourScore.toFixed(2)}
+              </span>
             </div>
+          )}
+          <div className="flex items-center gap-1">
+            <MapPin size={12} className="text-ink-400" aria-hidden="true" />
+            <span className="font-mono text-[11px] text-ink-400">{provider.city}</span>
           </div>
         </div>
       </div>
@@ -2438,12 +2627,53 @@ export function ProviderCard({ provider }: { provider: ProviderSummary }) {
 }
 ```
 
-- [ ] **Step 2: Create client/src/app/(customer)/feed/page.tsx**
+- [ ] **Step 2: Create client/src/components/providers/ProviderCardSkeleton.tsx**
+
+```tsx
+export function ProviderCardSkeleton() {
+  return (
+    <div className="bg-white border border-ui border-border-ui rounded-card p-4 flex gap-3.5 animate-pulse" aria-hidden="true">
+      <div className="w-14 h-14 rounded-[10px] bg-surface shrink-0" />
+      <div className="flex-1 space-y-2">
+        <div className="h-4 bg-surface rounded w-2/3" />
+        <div className="h-3 bg-surface rounded w-1/2" />
+        <div className="h-3 bg-surface rounded w-1/3" />
+      </div>
+    </div>
+  )
+}
+```
+
+- [ ] **Step 3: Create client/src/app/(customer)/feed/loading.tsx**
+
+```tsx
+import { ProviderCardSkeleton } from '@/components/providers/ProviderCardSkeleton'
+
+export default function FeedLoading() {
+  return (
+    <div className="min-h-dvh bg-surface">
+      <div className="bg-favour-dark px-5 py-5 space-y-3.5">
+        <div className="h-3 bg-[#1F2937] rounded w-32 animate-pulse" />
+        <div className="h-10 bg-[#1F2937] rounded-input animate-pulse" />
+      </div>
+      <div className="px-4 pt-4 space-y-2.5">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <ProviderCardSkeleton key={i} />
+        ))}
+      </div>
+    </div>
+  )
+}
+```
+
+- [ ] **Step 4: Create client/src/app/(customer)/feed/page.tsx**
 
 ```tsx
 import { api } from '@/lib/api'
 import { ProviderCard } from '@/components/providers/ProviderCard'
+import { SERVICE_CATEGORY_LABELS, SERVICE_CATEGORIES } from '@favour/shared'
 import { MapPin, Search } from 'lucide-react'
+import Link from 'next/link'
 
 export default async function FeedPage({
   searchParams,
@@ -2456,38 +2686,77 @@ export default async function FeedPage({
   })
 
   return (
-    <div style={{ minHeight: '100dvh', background: '#F3F4F6' }}>
-      {/* Header */}
-      <div style={{ background: '#111827', padding: '20px 20px 16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-          <MapPin size={14} color="#9CA3AF" />
-          <span className="font-mono" style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.06em' }}>
+    <main className="min-h-dvh bg-surface">
+      {/* Dark header */}
+      <header className="bg-favour-dark px-5 pt-5 pb-4">
+        <div className="flex items-center gap-2 mb-3.5">
+          <MapPin size={14} className="text-ink-400" aria-hidden="true" />
+          <span className="font-mono text-[11px] font-bold text-ink-400 tracking-[0.06em]">
             BATANGAS CITY
           </span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#1F2937', border: '1.5px solid #374151', borderRadius: 8, padding: '10px 14px' }}>
-          <Search size={16} color="#6B7280" />
-          <span className="font-body" style={{ fontSize: 14, color: '#6B7280' }}>Search services…</span>
+        <div
+          className="flex items-center gap-2.5 bg-[#1F2937] border border-[#374151] rounded-input px-3.5 py-2.5"
+          role="search"
+        >
+          <Search size={16} className="text-ink-400" aria-hidden="true" />
+          <span className="font-body text-[14px] text-ink-400">Search services…</span>
         </div>
-      </div>
+      </header>
+
+      {/* Category filter row */}
+      <nav className="flex gap-2 px-4 py-3 overflow-x-auto" aria-label="Service categories">
+        <Link
+          href="/feed"
+          className={`font-mono text-[11px] font-bold px-3 py-1.5 rounded-pill border border-ui whitespace-nowrap touch-target flex items-center ${!searchParams.category ? 'bg-favour-blue text-white border-favour-blue' : 'bg-white text-ink-700 border-border-ui'}`}
+        >
+          ALL
+        </Link>
+        {SERVICE_CATEGORIES.map(cat => (
+          <Link
+            key={cat}
+            href={`/feed?category=${cat}`}
+            className={`font-mono text-[11px] font-bold px-3 py-1.5 rounded-pill border border-ui whitespace-nowrap touch-target flex items-center ${searchParams.category === cat ? 'bg-favour-blue text-white border-favour-blue' : 'bg-white text-ink-700 border-border-ui'}`}
+          >
+            {SERVICE_CATEGORY_LABELS[cat].toUpperCase()}
+          </Link>
+        ))}
+      </nav>
 
       {/* Provider list */}
-      <div style={{ padding: '16px 16px' }}>
-        <div className="font-sans" style={{ fontSize: 13, fontWeight: 700, color: '#4B5563', marginBottom: 12 }}>
-          {providers.length} providers available
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {providers.map((p: any) => (
-            <ProviderCard key={p.id} provider={p} />
-          ))}
-        </div>
+      <div className="px-4 pb-8">
+        <p className="font-sans text-[13px] font-bold text-ink-700 mb-3">
+          {providers.length} {providers.length === 1 ? 'provider' : 'providers'} available
+        </p>
+
+        {providers.length === 0 ? (
+          <div className="text-center py-16">
+            <p className="font-sans text-[16px] font-bold text-favour-dark mb-2">No providers found</p>
+            <p className="font-body text-[14px] text-ink-700 mb-4">
+              {searchParams.category
+                ? `No ${SERVICE_CATEGORY_LABELS[searchParams.category as keyof typeof SERVICE_CATEGORY_LABELS] ?? searchParams.category} providers yet.`
+                : 'Check back soon — we're onboarding providers now.'}
+            </p>
+            {searchParams.category && (
+              <Link href="/feed" className="font-body text-[14px] text-favour-blue font-semibold">
+                View all providers →
+              </Link>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            {providers.map((p: any) => (
+              <ProviderCard key={p.id} provider={p} />
+            ))}
+          </div>
+        )}
       </div>
-    </div>
+    </main>
   )
 }
 ```
 
-- [ ] **Step 3: Create client/src/app/(customer)/providers/[id]/page.tsx**
+- [ ] **Step 5: Create client/src/app/(customer)/providers/[id]/page.tsx**
 
 ```tsx
 import { api } from '@/lib/api'
@@ -2497,6 +2766,7 @@ import { StatBox } from '@/components/ui/StatBox'
 import { Pill } from '@/components/ui/Pill'
 import { Button } from '@/components/ui/Button'
 import Link from 'next/link'
+import { ArrowLeft } from 'lucide-react'
 
 export default async function ProviderProfilePage({ params }: { params: { id: string } }) {
   let provider: any
@@ -2509,55 +2779,68 @@ export default async function ProviderProfilePage({ params }: { params: { id: st
   const score = provider.favourScore?.overall ?? 0
 
   return (
-    <div style={{ minHeight: '100dvh', background: '#F3F4F6', paddingBottom: 90 }}>
-      <div style={{ padding: '20px 20px 0' }}>
+    <main className="min-h-dvh bg-surface pb-24">
+      {/* Back nav */}
+      <nav className="px-5 pt-5 pb-3">
+        <Link
+          href="/feed"
+          className="inline-flex items-center gap-2 font-sans text-[14px] font-semibold text-ink-700 touch-target"
+          aria-label="Back to feed"
+        >
+          <ArrowLeft size={16} aria-hidden="true" />
+          Back
+        </Link>
+      </nav>
+
+      <div className="px-5">
         {/* Hero */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
-          <div style={{
-            width: 72, height: 72, borderRadius: 12, background: '#E5E7EB', flexShrink: 0,
-            backgroundImage: provider.photos?.[0] ? `url(${provider.photos[0]})` : undefined,
-            backgroundSize: 'cover',
-          }} />
-          <div>
-            <div className="font-sans" style={{ fontSize: 20, fontWeight: 800, color: '#111827' }}>
+        <div className="flex items-center gap-4 mb-4">
+          <div
+            className="w-[72px] h-[72px] rounded-[12px] bg-surface shrink-0 bg-cover bg-center"
+            style={provider.photos?.[0] ? { backgroundImage: `url(${provider.photos[0]})` } : undefined}
+            role="img"
+            aria-label={provider.photos?.[0] ? `${provider.displayName} photo` : 'No photo'}
+          />
+          <div className="min-w-0">
+            <h1 className="font-sans text-[20px] font-extrabold text-favour-dark truncate">
               {provider.displayName}
-            </div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+            </h1>
+            <div className="flex gap-2 mt-1.5 flex-wrap">
               <Pill color="dark">{provider.type}</Pill>
               {provider.isVerified && <Pill color="green">✓ FAVOUR VERIFIED</Pill>}
             </div>
           </div>
         </div>
 
-        <div style={{ marginBottom: 16 }}>
+        <div className="mb-4">
           <FavourScoreBanner score={score} />
         </div>
 
-        <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        <div className="flex gap-2 mb-5">
           <StatBox label="BOOKINGS" value={provider._count?.bookings ?? 0} />
           <StatBox label="REVIEWS" value={provider.reviewsReceived?.length ?? 0} />
           <StatBox label="CITY" value={provider.city} />
         </div>
 
         {provider.bio && (
-          <div className="font-body" style={{ fontSize: 14, color: '#4B5563', marginBottom: 20, lineHeight: 1.6 }}>
+          <p className="font-body text-[14px] text-ink-700 leading-relaxed mb-5 max-w-prose">
             {provider.bio}
-          </div>
+          </p>
         )}
       </div>
 
       {/* Sticky CTA */}
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '16px 20px', background: '#fff', borderTop: '1.5px solid #E5E7EB' }}>
-        <Link href={`/book/${provider.id}`}>
+      <footer className="fixed bottom-0 inset-x-0 px-5 py-4 bg-white border-t border-ui border-border-ui">
+        <Link href={`/book/${provider.id}`} aria-label={`Book ${provider.displayName}`}>
           <Button fullWidth>Book Now</Button>
         </Link>
-      </div>
-    </div>
+      </footer>
+    </main>
   )
 }
 ```
 
-- [ ] **Step 4: Create client/src/components/bookings/BookingConfirmed.tsx**
+- [ ] **Step 6: Create client/src/components/bookings/BookingConfirmed.tsx**
 
 ```tsx
 import type { Booking } from '@favour/shared'
@@ -2567,50 +2850,59 @@ import Link from 'next/link'
 
 export function BookingConfirmed({ booking }: { booking: Booking }) {
   return (
-    <div style={{ minHeight: '100dvh', background: '#F3F4F6' }}>
-      {/* Green header */}
-      <div style={{ background: '#007A33', padding: '40px 20px 32px', textAlign: 'center' }}>
-        <CheckCircle2 size={48} color="#fff" style={{ marginBottom: 12 }} />
-        <div className="font-sans" style={{ fontSize: 24, fontWeight: 800, color: '#fff', marginBottom: 6 }}>
+    <main className="min-h-dvh bg-surface">
+      {/* Success header */}
+      <header className="bg-verify-green px-5 py-10 text-center">
+        <CheckCircle2 size={48} className="text-white mx-auto mb-3" aria-hidden="true" />
+        <h1 className="font-sans text-[24px] font-extrabold text-white mb-1.5">
           Booking Confirmed!
-        </div>
-        <div className="font-mono" style={{ fontSize: 16, fontWeight: 700, color: '#A7F3C0', letterSpacing: '0.08em' }}>
+        </h1>
+        <p
+          className="font-mono text-[16px] font-bold text-[#A7F3C0] tracking-[0.08em]"
+          aria-label={`Reference code ${booking.referenceCode}`}
+        >
           {booking.referenceCode}
-        </div>
-      </div>
+        </p>
+      </header>
 
-      <div style={{ padding: 20 }}>
-        {/* Booking details */}
-        <div style={{ background: '#fff', border: '1.5px solid #E5E7EB', borderRadius: 12, padding: 16, marginBottom: 16 }}>
-          <div className="font-mono" style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.08em', marginBottom: 12 }}>
-            BOOKING DETAILS
-          </div>
-          <div className="font-body" style={{ fontSize: 14, color: '#4B5563', marginBottom: 6 }}>
-            <strong>Date & Time:</strong> {new Date(booking.datetime).toLocaleString('en-PH')}
-          </div>
-          <div className="font-body" style={{ fontSize: 14, color: '#4B5563' }}>
-            <strong>Address:</strong> {booking.address}
-          </div>
-        </div>
+      <div className="px-5 py-5 space-y-4">
+        {/* Details card */}
+        <section className="bg-white border border-ui border-border-ui rounded-card p-4" aria-label="Booking details">
+          <p className="font-mono text-[11px] font-bold text-ink-400 tracking-[0.08em] mb-3">BOOKING DETAILS</p>
+          <dl className="space-y-1.5">
+            <div className="flex gap-2">
+              <dt className="font-body text-[14px] font-semibold text-favour-dark shrink-0">Date &amp; Time</dt>
+              <dd className="font-body text-[14px] text-ink-700">{new Date(booking.datetime).toLocaleString('en-PH')}</dd>
+            </div>
+            <div className="flex gap-2">
+              <dt className="font-body text-[14px] font-semibold text-favour-dark shrink-0">Address</dt>
+              <dd className="font-body text-[14px] text-ink-700">{booking.address}</dd>
+            </div>
+          </dl>
+        </section>
 
-        {/* Chat unlock banner */}
-        <div style={{ border: '1.5px dashed #0047CC', borderRadius: 12, padding: 16, background: '#EEF3FF', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
-          <MessageSquare size={20} color="#0047CC" />
-          <span className="font-body" style={{ fontSize: 13, color: '#0047CC', fontWeight: 600 }}>
+        {/* Chat unlock banner — dashed border is intentional per design spec */}
+        <div
+          className="flex items-center gap-3 px-4 py-4 bg-favour-blue-light rounded-card"
+          style={{ border: '1.5px dashed #0047CC' }}
+          role="status"
+        >
+          <MessageSquare size={20} className="text-favour-blue shrink-0" aria-hidden="true" />
+          <p className="font-body text-[13px] font-semibold text-favour-blue">
             Chat is now unlocked — message your provider directly.
-          </span>
+          </p>
         </div>
 
-        <Link href={`/chat/${booking.id}`}>
-          <Button fullWidth variant="primary">Open Chat</Button>
+        <Link href={`/chat/${booking.id}`} aria-label="Open chat with provider">
+          <Button fullWidth>Open Chat</Button>
         </Link>
       </div>
-    </div>
+    </main>
   )
 }
 ```
 
-- [ ] **Step 5: Create client/src/app/(customer)/bookings/[id]/page.tsx**
+- [ ] **Step 7: Create client/src/app/(customer)/bookings/[id]/page.tsx**
 
 ```tsx
 import { cookies } from 'next/headers'
@@ -2619,7 +2911,7 @@ import { redirect } from 'next/navigation'
 import { api } from '@/lib/api'
 import { BookingConfirmed } from '@/components/bookings/BookingConfirmed'
 import { BookingStatusBadge } from '@/components/ui/BookingStatusBadge'
-import type { Booking, BookingStatus } from '@favour/shared'
+import type { BookingStatus } from '@favour/shared'
 
 async function getAccessToken(): Promise<string | null> {
   const cookieStore = cookies()
@@ -2643,17 +2935,18 @@ export default async function BookingDetailPage({ params }: { params: { id: stri
   }
 
   return (
-    <div style={{ padding: 20 }}>
-      <div className="font-sans" style={{ fontSize: 20, fontWeight: 800, color: '#111827', marginBottom: 16 }}>
-        Booking {booking.referenceCode}
-      </div>
+    <main className="min-h-dvh bg-surface px-5 py-6">
+      <h1 className="font-sans text-[20px] font-extrabold text-favour-dark mb-4">
+        Booking{' '}
+        <span className="font-mono text-[16px]">{booking.referenceCode}</span>
+      </h1>
       <BookingStatusBadge status={booking.status as BookingStatus} />
-    </div>
+    </main>
   )
 }
 ```
 
-- [ ] **Step 6: Create client/src/app/(customer)/book/[providerId]/page.tsx**
+- [ ] **Step 8: Create client/src/app/(customer)/book/[providerId]/page.tsx**
 
 ```tsx
 'use client'
@@ -2662,6 +2955,8 @@ import { useParams, useRouter } from 'next/navigation'
 import { useAuthStore } from '@/stores/auth'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/Button'
+import { FieldLabel } from '@/components/ui/FieldLabel'
+import { Input } from '@/components/ui/Input'
 
 export default function BookingFormPage() {
   const { providerId } = useParams<{ providerId: string }>()
@@ -2689,55 +2984,63 @@ export default function BookingFormPage() {
     }
   }
 
-  const fieldLabel = (text: string) => (
-    <div className="font-mono" style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.08em', marginBottom: 6 }}>
-      {text}
-    </div>
-  )
-
-  const input = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
-    <input
-      {...props}
-      style={{ width: '100%', padding: '14px 16px', border: '1.5px solid #E5E7EB', borderRadius: 8, fontSize: 15, fontFamily: 'Figtree, sans-serif', outline: 'none', marginBottom: 16 }}
-    />
-  )
-
   return (
-    <div style={{ padding: '24px 20px', minHeight: '100dvh', background: '#F3F4F6' }}>
-      <div className="font-sans" style={{ fontSize: 22, fontWeight: 800, color: '#111827', marginBottom: 24 }}>
-        Book a service
+    <main className="min-h-dvh bg-surface px-5 py-6">
+      <h1 className="font-sans text-[22px] font-extrabold text-favour-dark mb-6">Book a service</h1>
+
+      <div className="space-y-4">
+        <div>
+          <FieldLabel htmlFor="datetime">PREFERRED DATE &amp; TIME</FieldLabel>
+          <Input
+            id="datetime"
+            type="datetime-local"
+            value={datetime}
+            onChange={e => setDatetime(e.target.value)}
+          />
+        </div>
+
+        <div>
+          <FieldLabel htmlFor="address">SERVICE ADDRESS</FieldLabel>
+          <Input
+            id="address"
+            type="text"
+            placeholder="Street, Barangay, Batangas City"
+            value={address}
+            onChange={e => setAddress(e.target.value)}
+            autoComplete="street-address"
+          />
+        </div>
+
+        <div>
+          <FieldLabel htmlFor="notes">NOTES (OPTIONAL)</FieldLabel>
+          <textarea
+            id="notes"
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            placeholder="Describe the issue or any special instructions…"
+            rows={4}
+            className="w-full px-4 py-[14px] font-body text-[15px] text-favour-dark bg-white border border-ui border-border-ui rounded-input placeholder:text-ink-400 outline-none focus:border-favour-blue focus:ring-1 focus:ring-favour-blue-mid motion-safe:transition-colors duration-150 resize-none"
+          />
+        </div>
+
+        {error && (
+          <p role="alert" className="font-body text-[13px] text-danger">{error}</p>
+        )}
+
+        <Button
+          fullWidth
+          disabled={!datetime || !address || loading}
+          onClick={handleSubmit}
+        >
+          {loading ? 'Submitting…' : 'Request Booking'}
+        </Button>
       </div>
-
-      {fieldLabel('PREFERRED DATE & TIME')}
-      {input({ type: 'datetime-local', value: datetime, onChange: e => setDatetime(e.target.value) })}
-
-      {fieldLabel('SERVICE ADDRESS')}
-      {input({ type: 'text', placeholder: 'Street, Barangay, Batangas City', value: address, onChange: e => setAddress(e.target.value) })}
-
-      {fieldLabel('NOTES (OPTIONAL)')}
-      <textarea
-        value={notes}
-        onChange={e => setNotes(e.target.value)}
-        placeholder="Describe the issue or any special instructions…"
-        rows={4}
-        style={{ width: '100%', padding: '14px 16px', border: '1.5px solid #E5E7EB', borderRadius: 8, fontSize: 15, fontFamily: 'Figtree, sans-serif', outline: 'none', marginBottom: 20, resize: 'none' }}
-      />
-
-      {error && <div style={{ color: '#D92121', fontSize: 13, marginBottom: 12 }}>{error}</div>}
-
-      <Button
-        fullWidth
-        disabled={!datetime || !address || loading}
-        onClick={handleSubmit}
-      >
-        {loading ? 'Submitting…' : 'Request Booking'}
-      </Button>
-    </div>
+    </main>
   )
 }
 ```
 
-- [ ] **Step 7: Typecheck**
+- [ ] **Step 9: Typecheck**
 
 ```bash
 cd client && pnpm tsc --noEmit
@@ -2745,16 +3048,21 @@ cd client && pnpm tsc --noEmit
 
 Expected: no errors.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
 git add client/src/app/\(customer\)/ client/src/components/providers/ client/src/components/bookings/
-git commit -m "feat(client): customer feed, provider profile, booking form, booking confirmed pages"
+git commit -m "feat(client): customer pages — Tailwind-first, empty states, loading skeletons, WCAG AA"
 ```
 
 ---
 
 ### Task 16: Provider dashboard
+
+**Design rules enforced here:**
+- Empty state teaches the interface — gives the provider an actionable next step
+- Booking cards use semantic `<article>` elements
+- No hardcoded empty array — adds a `GET /bookings?role=provider` note so James knows the route is needed
 
 **Files:**
 - Create: `client/src/app/(provider)/dashboard/page.tsx`
@@ -2765,9 +3073,19 @@ git commit -m "feat(client): customer feed, provider profile, booking form, book
 import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 import { redirect } from 'next/navigation'
-import { api } from '@/lib/api'
 import { BookingStatusBadge } from '@/components/ui/BookingStatusBadge'
-import type { Booking, BookingStatus } from '@favour/shared'
+import type { BookingStatus } from '@favour/shared'
+
+async function getProviderBookings(token: string): Promise<any[]> {
+  // Requires server route: GET /bookings?scope=provider
+  // Provider identity resolved from JWT on the server side
+  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bookings?scope=provider`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: 'no-store',
+  })
+  if (!res.ok) return []
+  return res.json()
+}
 
 async function getAccessToken(): Promise<string | null> {
   const cookieStore = cookies()
@@ -2784,47 +3102,105 @@ export default async function ProviderDashboard() {
   const token = await getAccessToken()
   if (!token) redirect('/login')
 
-  // Provider sees their own bookings via the bookings endpoint
-  // In production this would be a dedicated /providers/me/bookings route
-  // For MVP we fetch from a query param — provider is identified by the JWT on the server
-  const bookings: Booking[] = []
+  const bookings = await getProviderBookings(token)
+  const pending = bookings.filter((b: any) => b.status === 'PENDING')
+  const active  = bookings.filter((b: any) => b.status === 'CONFIRMED')
+  const past    = bookings.filter((b: any) => ['COMPLETED', 'CANCELLED', 'DECLINED'].includes(b.status))
 
   return (
-    <div style={{ minHeight: '100dvh', background: '#F3F4F6', padding: 20 }}>
-      <div className="font-sans" style={{ fontSize: 22, fontWeight: 800, color: '#111827', marginBottom: 20 }}>
-        My Bookings
-      </div>
+    <main className="min-h-dvh bg-surface px-5 py-6">
+      <h1 className="font-sans text-[22px] font-extrabold text-favour-dark mb-6">My Bookings</h1>
 
       {bookings.length === 0 ? (
-        <div className="font-body" style={{ textAlign: 'center', color: '#9CA3AF', marginTop: 60, fontSize: 15 }}>
-          No bookings yet. Share your profile link to get started.
+        <div className="text-center py-20">
+          <p className="font-sans text-[16px] font-bold text-favour-dark mb-2">No bookings yet</p>
+          <p className="font-body text-[14px] text-ink-700 max-w-xs mx-auto">
+            Share your profile link with customers to start receiving booking requests.
+          </p>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {bookings.map((b) => (
-            <div key={b.id} style={{ background: '#fff', border: '1.5px solid #E5E7EB', borderRadius: 12, padding: 16 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span className="font-mono" style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>
-                  {b.referenceCode}
-                </span>
-                <BookingStatusBadge status={b.status as BookingStatus} />
+        <div className="space-y-6">
+          {pending.length > 0 && (
+            <section aria-label="Pending requests">
+              <h2 className="font-mono text-[11px] font-bold text-ink-400 tracking-[0.08em] mb-3">
+                PENDING — {pending.length}
+              </h2>
+              <div className="space-y-2.5">
+                {pending.map((b: any) => <BookingCard key={b.id} booking={b} />)}
               </div>
-              <div className="font-body" style={{ fontSize: 13, color: '#4B5563', marginTop: 8 }}>
-                {new Date(b.datetime).toLocaleString('en-PH')}
+            </section>
+          )}
+
+          {active.length > 0 && (
+            <section aria-label="Confirmed bookings">
+              <h2 className="font-mono text-[11px] font-bold text-ink-400 tracking-[0.08em] mb-3">
+                CONFIRMED — {active.length}
+              </h2>
+              <div className="space-y-2.5">
+                {active.map((b: any) => <BookingCard key={b.id} booking={b} />)}
               </div>
-              <div className="font-body" style={{ fontSize: 13, color: '#9CA3AF', marginTop: 4 }}>
-                {b.address}
+            </section>
+          )}
+
+          {past.length > 0 && (
+            <section aria-label="Past bookings">
+              <h2 className="font-mono text-[11px] font-bold text-ink-400 tracking-[0.08em] mb-3">
+                PAST — {past.length}
+              </h2>
+              <div className="space-y-2.5">
+                {past.map((b: any) => <BookingCard key={b.id} booking={b} />)}
               </div>
-            </div>
-          ))}
+            </section>
+          )}
         </div>
       )}
-    </div>
+    </main>
+  )
+}
+
+function BookingCard({ booking }: { booking: any }) {
+  return (
+    <article className="bg-white border border-ui border-border-ui rounded-card p-4">
+      <div className="flex items-center justify-between mb-2">
+        <span className="font-mono text-[13px] font-bold text-favour-dark">
+          {booking.referenceCode}
+        </span>
+        <BookingStatusBadge status={booking.status as BookingStatus} />
+      </div>
+      <p className="font-body text-[13px] text-ink-700">
+        {new Date(booking.datetime).toLocaleString('en-PH')}
+      </p>
+      <p className="font-body text-[13px] text-ink-400 mt-0.5 truncate">
+        {booking.address}
+      </p>
+    </article>
   )
 }
 ```
 
-- [ ] **Step 2: Final full typecheck across all packages**
+- [ ] **Step 2: Add `scope=provider` query to server bookings route**
+
+In `server/src/controllers/bookings.controller.ts`, add a `list` handler:
+
+```typescript
+async list(req: FastifyRequest<{ Querystring: { scope?: string } }>, reply: FastifyReply) {
+  const repo = createBookingsRepo(req.server.prisma)
+  if (req.query.scope === 'provider' && req.user.providerId) {
+    const bookings = await repo.findByProvider(req.user.providerId)
+    return reply.send(bookings)
+  }
+  const bookings = await repo.findByCustomer(req.user.id)
+  return reply.send(bookings)
+},
+```
+
+In `server/src/routes/bookings.ts`, add:
+
+```typescript
+fastify.get('/', { preHandler: [fastify.authenticate] }, BookingsController.list)
+```
+
+- [ ] **Step 3: Final full typecheck across all packages**
 
 ```bash
 pnpm -r typecheck
@@ -2832,11 +3208,11 @@ pnpm -r typecheck
 
 Expected: no errors across shared, server, client.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add client/src/app/\(provider\)/
-git commit -m "feat(client): provider dashboard page"
+git add client/src/app/\(provider\)/ server/src/controllers/bookings.controller.ts server/src/routes/bookings.ts
+git commit -m "feat(client): provider dashboard — grouped by status, meaningful empty state"
 ```
 
 ---

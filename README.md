@@ -6,8 +6,8 @@ Home services booking marketplace — Philippines.
 | Role | Person | GitHub |
 |---|---|---|
 | Frontend | Nathan | @natadecua |
-| Backend | James | @jamesejercito03 |
-| PM / Full Stack | Milo | @[milo-handle] |
+| Backend | James | @jamesejercito |
+| PM / Full Stack | Milo | @[miloperezes] |
 
 ## Stack
 - **Frontend:** Next.js 14, Tailwind CSS, Supabase Auth
