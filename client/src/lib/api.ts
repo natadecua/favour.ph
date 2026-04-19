@@ -26,6 +26,10 @@ export const api = {
         method: 'POST', body: JSON.stringify(body),
         headers: { Authorization: `Bearer ${token}` },
       }),
+    list: (token: string, scope?: 'provider' | 'customer') =>
+      request<Booking[]>(`/bookings${scope ? `?scope=${scope}` : ''}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
     getById: (id: string, token: string) =>
       request<Booking>(`/bookings/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
