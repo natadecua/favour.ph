@@ -1,0 +1,129 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ── Enums ──────────────────────────────────────────────────────────────────
+
+enum Role {
+  CUSTOMER
+  PROVIDER
+  ADMIN
+}
+
+enum ProviderType {
+  BUSINESS
+  FREELANCER
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  DECLINED
+  COMPLETED
+  CANCELLED
+}
+
+// ── Models ─────────────────────────────────────────────────────────────────
+
+model User {
+  id        String    @id @default(uuid())
+  phone     String    @unique
+  email     String?   @unique
+  role      Role      @default(CUSTOMER)
+  provider  Provider?
+  bookingsAsCustomer Booking[] @relation("CustomerBookings")
+  reviewsWritten     Review[]  @relation("ReviewAuthor")
+  messagesSent       Message[] @relation("MessageSender")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Provider {
+  id          String       @id @default(uuid())
+  userId      String       @unique
+  user        User         @relation(fields: [userId], references: [id])
+  type        ProviderType
+  displayName String
+  bio         String?
+  city        String
+  isVerified  Boolean      @default(false)
+  photos      String[]
+  services    Service[]
+  bookings    Booking[]    @relation("ProviderBookings")
+  reviewsReceived Review[] @relation("ReviewTarget")
+  favourScore FavourScore?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Service {
+  id         String          @id @default(uuid())
+  providerId String
+  provider   Provider        @relation(fields: [providerId], references: [id])
+  name       String
+  category   String
+  priceMin   Int
+  priceMax   Int
+  bookings   Booking[]
+  createdAt  DateTime        @default(now())
+}
+
+model Booking {
+  id            String        @id @default(uuid())
+  referenceCode String        @unique
+  customerId    String
+  customer      User          @relation("CustomerBookings", fields: [customerId], references: [id])
+  providerId    String
+  provider      Provider      @relation("ProviderBookings", fields: [providerId], references: [id])
+  serviceId     String
+  service       Service       @relation(fields: [serviceId], references: [id])
+  status        BookingStatus @default(PENDING)
+  datetime      DateTime
+  address       String
+  notes         String?
+  messages      Message[]
+  review        Review?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  bookingId String   @unique
+  booking   Booking  @relation(fields: [bookingId], references: [id])
+  authorId  String
+  author    User     @relation("ReviewAuthor", fields: [authorId], references: [id])
+  targetId  String
+  target    Provider @relation("ReviewTarget", fields: [targetId], references: [id])
+  rating    Int
+  body      String
+  createdAt DateTime @default(now())
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  bookingId String
+  booking   Booking  @relation(fields: [bookingId], references: [id])
+  senderId  String
+  sender    User     @relation("MessageSender", fields: [senderId], references: [id])
+  body      String
+  createdAt DateTime @default(now())
+}
+
+model FavourScore {
+  id             String   @id @default(uuid())
+  providerId     String   @unique
+  provider       Provider @relation(fields: [providerId], references: [id])
+  overall        Float    @default(0)
+  responseRate   Float    @default(0)
+  completionRate Float    @default(0)
+  reviewAverage  Float    @default(0)
+  recency        Float    @default(0)
+  updatedAt      DateTime @updatedAt
+}
