@@ -14,7 +14,7 @@ async function ProviderList({ category }: { category?: string }) {
   const params: Record<string, string> = {}
   if (category) params.category = category
 
-  const providers = await api.providers.feed(params)
+  const providers = await api.providers.feed(params).catch(() => [])
 
   if (providers.length === 0) {
     const categoryLabel = category

@@ -9,7 +9,11 @@ declare module 'fastify' {
 
 export const redisPlugin = fp(async (fastify) => {
   const redis = new Redis(process.env['REDIS_URL']!, { lazyConnect: true })
-  await redis.connect()
+  try {
+    await redis.connect()
+  } catch {
+    fastify.log.warn('Redis unavailable — session caching disabled')
+  }
   fastify.decorate('redis', redis)
-  fastify.addHook('onClose', async () => { await redis.quit() })
+  fastify.addHook('onClose', async () => { await redis.quit().catch(() => {}) })
 })
