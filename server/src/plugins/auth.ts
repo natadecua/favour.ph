@@ -37,8 +37,15 @@ export const authPlugin = fp(async (fastify) => {
         return
       }
 
-      const user = await fastify.prisma.user.findUniqueOrThrow({
+      const user = await fastify.prisma.user.upsert({
         where: { id: userId },
+        create: {
+          id: userId,
+          phone: `supabase_${userId}`,
+          role: 'CUSTOMER',
+          updatedAt: new Date(),
+        },
+        update: {},
         include: { provider: { select: { id: true } } },
       })
 
