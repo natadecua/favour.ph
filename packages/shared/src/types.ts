@@ -1,17 +1,21 @@
-import { BOOKING_STATUS, USER_ROLES, SERVICE_CATEGORIES, PROVIDER_TYPES } from './constants'
+// ── Enums ──────────────────────────────────────────────────────────────────
 
-export type BookingStatus = typeof BOOKING_STATUS[keyof typeof BOOKING_STATUS]
-export type UserRole = typeof USER_ROLES[keyof typeof USER_ROLES]
-export type ServiceCategory = typeof SERVICE_CATEGORIES[keyof typeof SERVICE_CATEGORIES]
-export type ProviderType = typeof PROVIDER_TYPES[keyof typeof PROVIDER_TYPES]
+export type Role = 'CUSTOMER' | 'PROVIDER' | 'ADMIN'
+export type ProviderType = 'BUSINESS' | 'FREELANCER'
+export type BookingStatus =
+  | 'PENDING'
+  | 'CONFIRMED'
+  | 'DECLINED'
+  | 'COMPLETED'
+  | 'CANCELLED'
+
+// ── Core entities ──────────────────────────────────────────────────────────
 
 export interface User {
   id: string
-  name: string
-  email: string | null
   phone: string
-  role: UserRole
-  favourPoints: number
+  email: string | null
+  role: Role
   createdAt: string
 }
 
@@ -20,90 +24,82 @@ export interface Provider {
   userId: string
   type: ProviderType
   displayName: string
-  photoUrl: string | null
-  description: string
-  favourScore: number | null
-  responseRate: number
-  avgResponseHours: number
-  completionRate: number
+  bio: string | null
+  city: string
   isVerified: boolean
-  isActive: boolean
-  latitude: number | null
-  longitude: number | null
+  photos: string[]
+  favourScore: FavourScore | null
   services: Service[]
 }
 
 export interface Service {
   id: string
   providerId: string
-  providerType: ProviderType
   name: string
-  description: string | null
+  category: ServiceCategory
   priceMin: number
   priceMax: number
-  category: ServiceCategory
 }
 
 export interface Booking {
   id: string
+  referenceCode: string
   customerId: string
   providerId: string
-  providerType: ProviderType
   serviceId: string
-  preferredDatetime: string
-  customerAddress: string
-  notes: string | null
   status: BookingStatus
-  cancellationReason: string | null
-  isLateCancel: boolean
-  cancelledBy: 'customer' | 'provider' | null
+  datetime: string
+  address: string
+  notes: string | null
   createdAt: string
-  confirmedAt: string | null
-  completedAt: string | null
-  cancelledAt: string | null
 }
 
 export interface Review {
   id: string
   bookingId: string
-  reviewerId: string
-  revieweeId: string
-  reviewerRole: 'customer' | 'provider'
+  authorId: string
+  targetId: string
   rating: number
   body: string
-  isPublished: boolean
-  submittedAt: string
-  publishedAt: string | null
+  createdAt: string
 }
 
-export interface ChatMessage {
+export interface Message {
   id: string
   bookingId: string
   senderId: string
   body: string
-  sentAt: string
-  isRead: boolean
+  createdAt: string
 }
 
-// API response wrappers
-export interface ApiResponse<T> {
-  data: T
-  error: null
+export interface FavourScore {
+  providerId: string
+  overall: number
+  responseRate: number
+  completionRate: number
+  reviewAverage: number
+  recency: number
+  updatedAt: string
 }
 
-export interface ApiError {
-  data: null
-  error: {
-    message: string
-    code: string
-  }
+// ── API response shapes ────────────────────────────────────────────────────
+
+export interface ProviderSummary {
+  id: string
+  displayName: string
+  type: ProviderType
+  city: string
+  isVerified: boolean
+  photo: string | null
+  favourScore: number | null
+  topService: Pick<Service, 'name' | 'category' | 'priceMin' | 'priceMax'> | null
 }
 
-export interface PaginatedResponse<T> {
-  data: T[]
-  pagination: {
-    page: number
-    total: number
-    hasMore: boolean
-  }
-}
+export type ServiceCategory =
+  | 'aircon'
+  | 'plumbing'
+  | 'electrical'
+  | 'cleaning'
+  | 'carpentry'
+  | 'painting'
+  | 'appliance_repair'
