@@ -9,25 +9,9 @@ const colorClasses: Record<PillColor, string> = {
   dark:  'bg-surface text-favour-dark border-border-ui',
 }
 
-export function Pill({
-  children,
-  color = 'blue',
-  className,
-}: {
-  children: React.ReactNode
-  color?: PillColor
-  className?: string
-}) {
+export function Pill({ children, color = 'blue', className }: { children: React.ReactNode; color?: PillColor; className?: string }) {
   return (
-    <span
-      className={cn(
-        'font-mono inline-flex items-center h-[26px] px-[10px]',
-        'rounded-pill text-[11px] font-bold tracking-[0.04em]',
-        'border border-ui',
-        colorClasses[color],
-        className
-      )}
-    >
+    <span className={cn('font-mono inline-flex items-center h-[26px] px-[10px] rounded-pill text-[11px] font-bold tracking-[0.04em] border border-ui', colorClasses[color], className)}>
       {children}
     </span>
   )
