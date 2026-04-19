@@ -15,9 +15,11 @@ const config: Config = {
         'border-ui':         '#E5E7EB',
         'verify-green':      '#007A33',
         'green-light':       '#ECFDF0',
+        'green-border':      '#A7F3C0',
         'danger':            '#D92121',
         'amber':             '#B36B00',
         'amber-light':       '#FFF8E7',
+        'amber-border':      '#FCD34D',
       },
       fontFamily: {
         sans:  ['var(--font-manrope)', 'sans-serif'],

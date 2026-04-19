@@ -4,8 +4,8 @@ type PillColor = 'blue' | 'green' | 'amber' | 'dark'
 
 const colorClasses: Record<PillColor, string> = {
   blue:  'bg-favour-blue-light text-favour-blue border-favour-blue-mid',
-  green: 'bg-green-light text-verify-green border-[#A7F3C0]',
-  amber: 'bg-amber-light text-amber border-[#FCD34D]',
+  green: 'bg-green-light text-verify-green border-green-border',
+  amber: 'bg-amber-light text-amber border-amber-border',
   dark:  'bg-surface text-favour-dark border-border-ui',
 }
 
