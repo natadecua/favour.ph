@@ -102,7 +102,7 @@ Expected: both packages appear in `server/package.json`.
 - [ ] **Step 2: Commit**
 
 ```bash
-git add server/package.json server/pnpm-lock.yaml ../../pnpm-lock.yaml
+git add server/package.json pnpm-lock.yaml
 git commit -m "chore: add sanitize-html to server"
 ```
 
@@ -410,7 +410,7 @@ Expected: most tests fail because `ProvidersController.create` does not exist ye
 Open `server/src/services/providers.service.ts`. Add the import at the top:
 
 ```typescript
-import sanitizeHtml from 'sanitize-html'
+import sanitizeHtml = require('sanitize-html')
 import type { PrismaClient } from '@prisma/client'
 import type { CreateProviderInput } from '@favour/shared'
 ```
@@ -722,7 +722,7 @@ export function StepProfile({ values, token, onChange, onNext, onBack }: StepPro
   async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type as typeof ALLOWED_IMAGE_TYPES[number])) {
+    if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(file.type)) {
       setPhotoError('Please upload a JPEG, PNG, or WebP image.')
       return
     }
@@ -1225,6 +1225,8 @@ export default function OnboardingPage() {
       router.replace('/dashboard')
     } catch (err: any) {
       if (err?.status === 409) {
+        const me = await api.auth.me(accessToken!)
+        setSession({ userId: userId!, role: role as Role, providerId: me.providerId, accessToken: accessToken! })
         router.replace('/dashboard')
         return
       }
