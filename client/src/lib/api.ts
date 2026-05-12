@@ -1,11 +1,11 @@
-import type { Booking, Provider, Review } from '@favour/shared'
+import type { Booking, CreateProviderInput, Provider, Review } from '@favour/shared'
 
 const BASE = process.env.NEXT_PUBLIC_API_URL!
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
     ...init,
+    headers: { 'Content-Type': 'application/json', ...init?.headers },
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
@@ -19,6 +19,12 @@ export const api = {
     feed: (params?: Record<string, string>) =>
       request<Provider[]>(`/providers?${new URLSearchParams(params)}`),
     getById: (id: string) => request<Provider>(`/providers/${id}`),
+    create: (body: CreateProviderInput, token: string) =>
+      request<Provider>('/providers', {
+        method: 'POST',
+        body: JSON.stringify(body),
+        headers: { Authorization: `Bearer ${token}` },
+      }),
   },
   bookings: {
     create: (body: unknown, token: string) =>

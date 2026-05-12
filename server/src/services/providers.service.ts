@@ -1,5 +1,14 @@
-import type { ProviderFeedQuery } from '@favour/shared'
+import sanitizeHtml from 'sanitize-html'
+import type { CreateProviderInput, ProviderFeedQuery } from '@favour/shared'
 import type { ProvidersRepoInterface } from '../repositories/providers.repo.js'
+
+type ProviderPrisma = {
+  $transaction: <T>(fn: (tx: any) => Promise<T>) => Promise<T>
+}
+
+function sanitize(str: string): string {
+  return sanitizeHtml(str, { allowedTags: [], allowedAttributes: {} })
+}
 
 function toSummary(p: any) {
   return {
@@ -39,5 +48,29 @@ export const ProvidersService = {
       throw err
     }
     return toDetail(provider)
+  },
+
+  async create(userId: string, body: CreateProviderInput, prisma: ProviderPrisma) {
+    return prisma.$transaction(async (tx) => {
+      return tx.provider.create({
+        data: {
+          userId,
+          type: body.type,
+          displayName: sanitize(body.displayName),
+          bio: body.bio ? sanitize(body.bio) : null,
+          city: sanitize(body.city),
+          photos: body.photoPath ? [body.photoPath] : [],
+          services: {
+            create: body.services.map((service) => ({
+              name: sanitize(service.name),
+              category: service.category,
+              priceMin: service.priceMin,
+              priceMax: service.priceMax,
+            })),
+          },
+        },
+        include: { services: true },
+      })
+    })
   },
 }
