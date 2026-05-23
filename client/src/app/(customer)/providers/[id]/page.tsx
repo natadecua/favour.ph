@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { ShieldCheck } from 'lucide-react'
 import { api } from '@/lib/api'
 import { FavourScoreBanner } from '@/components/ui/FavourScoreBanner'
 import { StatBox } from '@/components/ui/StatBox'
@@ -18,6 +19,8 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
   const categoryLabel =
     SERVICE_CATEGORY_LABELS[provider.category as keyof typeof SERVICE_CATEGORY_LABELS] ??
     provider.category
+
+  const services = provider.services ?? []
 
   return (
     <main className="min-h-screen bg-surface pb-28">
@@ -42,9 +45,18 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
               {provider.displayName}
             </h1>
             <p className="font-sans text-[14px] text-white/70 mt-0.5">
-              {categoryLabel} · {provider.city}
+              {categoryLabel} - {provider.city}
             </p>
-            <div className="flex gap-2 mt-2">
+            <div className="flex flex-wrap gap-2 mt-2">
+              {provider.isVerified && (
+                <span
+                  title="Verified provider"
+                  className="inline-flex h-[24px] w-[24px] items-center justify-center rounded-full border border-ui border-green-border bg-green-light text-verify-green"
+                >
+                  <ShieldCheck aria-hidden="true" size={14} strokeWidth={2.5} />
+                  <span className="sr-only">Verified provider</span>
+                </span>
+              )}
               <Pill color={provider.type === 'BUSINESS' ? 'blue' : 'green'}>
                 {provider.type === 'BUSINESS' ? 'BUSINESS' : 'FREELANCER'}
               </Pill>
@@ -85,6 +97,48 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
         </div>
       )}
 
+      {/* Services */}
+      {services.length > 0 && (
+        <div className="mx-4 mt-3 bg-white border border-ui rounded-card p-4">
+          <p className="font-mono text-[11px] font-bold text-ink-400 tracking-[0.08em] mb-3">
+            SERVICES
+          </p>
+          <div className="flex flex-col divide-y divide-ui">
+            {services.map((service) => {
+              const serviceCategoryLabel =
+                SERVICE_CATEGORY_LABELS[
+                  service.category as keyof typeof SERVICE_CATEGORY_LABELS
+                ] ?? service.category
+
+              return (
+                <div key={service.id} className="py-3 first:pt-0 last:pb-0">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-sans text-[15px] font-semibold text-favour-dark leading-snug">
+                        {service.name}
+                      </p>
+                      <p className="font-sans text-[13px] text-ink-700 mt-0.5">
+                        {serviceCategoryLabel}
+                      </p>
+                    </div>
+                    <p className="shrink-0 text-right font-mono text-[14px] font-extrabold text-favour-dark">
+                      PHP {service.priceMin.toFixed(2)}
+                      {service.priceMax !== service.priceMin &&
+                        ` - ${service.priceMax.toFixed(2)}`}
+                    </p>
+                  </div>
+                  {service.duration && (
+                    <p className="font-mono text-[12px] font-bold text-ink-400 tracking-[0.04em] mt-2">
+                      {service.duration}
+                    </p>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Years experience */}
       {provider.yearsExperience != null && (
         <div className="mx-4 mt-3">
@@ -98,7 +152,7 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
       {/* Sticky Book Now CTA */}
       <div className="fixed bottom-0 inset-x-0 bg-white border-t border-ui px-4 py-4 z-20">
         <Link
-          href={`/feed/book/${provider.id}`}
+          href={`/book/${provider.id}`}
           className="flex items-center justify-center h-btn rounded-btn bg-favour-blue text-white font-display font-extrabold text-[17px] touch-target w-full motion-safe:transition-opacity duration-150 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-favour-blue focus-visible:ring-offset-2"
         >
           Book Now
