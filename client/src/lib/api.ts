@@ -1,6 +1,23 @@
-import type { Booking, CreateProviderInput, Provider, Review } from '@favour/shared'
+import type {
+  Booking,
+  CancelBookingInput,
+  CreateBookingInput,
+  CreateProviderInput,
+  CreateReviewInput,
+  ProviderDetail,
+  ProviderSummary,
+  RespondToBookingInput,
+  Review,
+} from '@favour/shared'
 
 const BASE = process.env.NEXT_PUBLIC_API_URL!
+
+type LegacyCreateBookingInput = {
+  providerId: string
+  scheduledAt: string
+  address: string
+  notes?: string
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
@@ -17,17 +34,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   providers: {
     feed: (params?: Record<string, string>) =>
-      request<Provider[]>(`/providers?${new URLSearchParams(params)}`),
-    getById: (id: string) => request<Provider>(`/providers/${id}`),
+      request<ProviderSummary[]>(`/providers?${new URLSearchParams(params)}`),
+    getById: (id: string) => request<ProviderDetail>(`/providers/${id}`),
     create: (body: CreateProviderInput, token: string) =>
-      request<Provider>('/providers', {
+      request<ProviderDetail>('/providers', {
         method: 'POST',
         body: JSON.stringify(body),
         headers: { Authorization: `Bearer ${token}` },
       }),
   },
   bookings: {
-    create: (body: unknown, token: string) =>
+    create: (body: CreateBookingInput | LegacyCreateBookingInput, token: string) =>
       request<Booking>('/bookings', {
         method: 'POST', body: JSON.stringify(body),
         headers: { Authorization: `Bearer ${token}` },
@@ -40,12 +57,12 @@ export const api = {
       request<Booking>(`/bookings/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       }),
-    respond: (id: string, body: unknown, token: string) =>
+    respond: (id: string, body: RespondToBookingInput, token: string) =>
       request<Booking>(`/bookings/${id}/respond`, {
         method: 'PATCH', body: JSON.stringify(body),
         headers: { Authorization: `Bearer ${token}` },
       }),
-    cancel: (id: string, body: unknown, token: string) =>
+    cancel: (id: string, body: CancelBookingInput, token: string) =>
       request<Booking>(`/bookings/${id}/cancel`, {
         method: 'PATCH', body: JSON.stringify(body),
         headers: { Authorization: `Bearer ${token}` },
@@ -57,7 +74,7 @@ export const api = {
       }),
   },
   reviews: {
-    create: (body: unknown, token: string) =>
+    create: (body: CreateReviewInput, token: string) =>
       request<Review>('/reviews', {
         method: 'POST', body: JSON.stringify(body),
         headers: { Authorization: `Bearer ${token}` },
