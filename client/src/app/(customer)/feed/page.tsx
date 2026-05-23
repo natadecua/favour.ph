@@ -47,17 +47,29 @@ function feedHref(searchParams: FeedPageProps['searchParams'], category?: string
   return queryString ? `/feed?${queryString}` : '/feed'
 }
 
+function clearSearchHref(searchParams: FeedPageProps['searchParams']) {
+  const params = toUrlSearchParams(searchParams)
+  params.delete('q')
+  params.delete('page')
+
+  const queryString = params.toString()
+  return queryString ? `/feed?${queryString}` : '/feed'
+}
+
 async function ProviderList({
   params,
   category,
   browseAllHref,
+  clearSearchHref,
 }: {
   params: Record<string, string>
   category?: string
   browseAllHref: string
+  clearSearchHref: string
 }) {
   const feedParams = { ...params }
   if (!feedParams.q?.trim()) delete feedParams.q
+  const query = feedParams.q?.trim()
 
   const providers = await api.providers.feed(feedParams).catch(() => [])
 
@@ -69,17 +81,27 @@ async function ProviderList({
     return (
       <div className="flex flex-col items-center justify-center text-center py-16 px-6">
         <h2 className="font-display font-extrabold text-[20px] text-favour-dark mb-2">
-          No providers found
+          {query ? 'No providers match your search' : 'No providers found'}
         </h2>
         <p className="font-sans text-[14px] text-ink-700 max-w-[320px] leading-relaxed">
-          {categoryLabel
-            ? `No ${categoryLabel} providers in Batangas City yet. We're onboarding more - check back soon or try another category.`
-            : "No providers in Batangas City yet. We're onboarding more - check back soon."}
+          {query
+            ? 'Try a different keyword or clear your search to see more providers.'
+            : categoryLabel
+              ? `No ${categoryLabel} providers in Batangas City yet. We're onboarding more - check back soon or try another category.`
+              : "No providers in Batangas City yet. We're onboarding more - check back soon."}
         </p>
+        {query && (
+          <Link
+            href={clearSearchHref}
+            className="mt-6 font-display font-extrabold text-[15px] text-favour-blue touch-target flex items-center justify-center"
+          >
+            Clear search
+          </Link>
+        )}
         {category && (
           <Link
             href={browseAllHref}
-            className="mt-6 font-display font-extrabold text-[15px] text-favour-blue touch-target flex items-center justify-center"
+            className="mt-4 font-display font-extrabold text-[15px] text-favour-blue touch-target flex items-center justify-center"
           >
             Browse all categories
           </Link>
@@ -115,6 +137,7 @@ export default function FeedPage({ searchParams }: FeedPageProps) {
   const activeCategory = firstParam(searchParams.category) ?? null
   const apiParams = Object.fromEntries(toUrlSearchParams(searchParams))
   const browseAllHref = feedHref(searchParams)
+  const clearSearchLink = clearSearchHref(searchParams)
 
   return (
     <main className="min-h-screen bg-surface pb-24">
@@ -200,6 +223,7 @@ export default function FeedPage({ searchParams }: FeedPageProps) {
             params={apiParams}
             category={activeCategory ?? undefined}
             browseAllHref={browseAllHref}
+            clearSearchHref={clearSearchLink}
           />
         </Suspense>
       </div>

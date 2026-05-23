@@ -5,7 +5,7 @@ import { Search, X } from 'lucide-react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Input } from '@/components/ui/Input'
 
-const SEARCH_DEBOUNCE_MS = 350
+const SEARCH_DEBOUNCE_MS = 300
 
 export function SearchInput() {
   const router = useRouter()
@@ -31,6 +31,7 @@ export function SearchInput() {
       } else {
         params.delete('q')
       }
+      params.delete('page')
 
       const queryString = params.toString()
       router.replace(queryString ? `${pathname}?${queryString}` : pathname, { scroll: false })
