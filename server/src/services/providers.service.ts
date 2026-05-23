@@ -20,6 +20,7 @@ function toSummary(p: any) {
     baseRate: p.services?.[0]?.priceMin ?? 0,
     city: p.city,
     avatarUrl: p.photos?.[0] ?? null,
+    isVerified: p.isVerified ?? false,
   }
 }
 
@@ -31,6 +32,14 @@ function toDetail(p: any) {
     completedBookings: 0,
     responseRate: Math.round((p.favourScore?.responseRate ?? 0) * 100),
     reviewCount: p.reviewsReceived?.length ?? 0,
+    services: (p.services ?? []).map((s: any) => ({
+      id: s.id,
+      name: s.name,
+      category: s.category,
+      priceMin: s.priceMin,
+      priceMax: s.priceMax,
+      duration: s.duration ?? null,
+    })),
   }
 }
 
@@ -66,6 +75,7 @@ export const ProvidersService = {
               category: service.category,
               priceMin: service.priceMin,
               priceMax: service.priceMax,
+              duration: service.duration ? sanitize(service.duration) : null,
             })),
           },
         },
