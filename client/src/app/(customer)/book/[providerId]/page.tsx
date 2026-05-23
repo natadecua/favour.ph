@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
 import { SERVICE_CATEGORY_LABELS, type Service } from '@favour/shared'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
@@ -33,21 +34,31 @@ export default function BookPage({ params }: BookPageProps) {
   const router = useRouter()
   const { accessToken } = useAuthStore()
 
-  const [services, setServices] = useState<Service[]>([])
-  const [providerName, setProviderName] = useState('Provider')
   const [selectedServiceId, setSelectedServiceId] = useState('')
   const [datetime, setDatetime] = useState('')
   const [address, setAddress] = useState('')
   const [notes, setNotes] = useState('')
-  const [loadingProvider, setLoadingProvider] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const {
+    data: provider,
+    isLoading: loadingProvider,
+    isError: providerError,
+  } = useQuery({
+    queryKey: ['provider', params.providerId],
+    queryFn: () => api.providers.getById(params.providerId),
+    enabled: !!accessToken,
+    retry: false,
+  })
 
   const minDatetime = useMemo(() => {
     const fiveMinutesFromNow = new Date(Date.now() + 5 * 60_000)
     return toDatetimeLocalValue(fiveMinutesFromNow)
   }, [])
 
+  const services = useMemo(() => provider?.services ?? [], [provider?.services])
+  const providerName = provider?.displayName ?? 'Provider'
   const selectedService = services.find((service) => service.id === selectedServiceId)
 
   useEffect(() => {
@@ -57,36 +68,23 @@ export default function BookPage({ params }: BookPageProps) {
   }, [accessToken, router])
 
   useEffect(() => {
-    let ignore = false
+    if (providerError) {
+      setError('Unable to load this provider. Please go back and try again.')
+    }
+  }, [providerError])
 
-    async function loadProvider() {
-      setLoadingProvider(true)
-      setError(null)
-
-      try {
-        const provider = await api.providers.getById(params.providerId)
-        if (ignore) return
-
-        setProviderName(provider.displayName)
-        setServices(provider.services ?? [])
-        setSelectedServiceId(provider.services?.[0]?.id ?? '')
-      } catch {
-        if (!ignore) {
-          setError('Unable to load this provider. Please go back and try again.')
-        }
-      } finally {
-        if (!ignore) {
-          setLoadingProvider(false)
-        }
+  useEffect(() => {
+    if (services.length === 0) {
+      if (selectedServiceId) {
+        setSelectedServiceId('')
       }
+      return
     }
 
-    loadProvider()
+    if (services.some((service) => service.id === selectedServiceId)) return
 
-    return () => {
-      ignore = true
-    }
-  }, [params.providerId])
+    setSelectedServiceId(services[0].id)
+  }, [selectedServiceId, services])
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -107,12 +105,6 @@ export default function BookPage({ params }: BookPageProps) {
       return
     }
 
-    const datetimeIso = datetimeLocalToIso(datetime)
-    if (new Date(datetimeIso) <= new Date()) {
-      setError('Please choose a future date and time.')
-      return
-    }
-
     if (address.trim().length < 10) {
       setError('Please enter the full service address.')
       return
@@ -120,6 +112,12 @@ export default function BookPage({ params }: BookPageProps) {
 
     setSubmitting(true)
     try {
+      const datetimeIso = datetimeLocalToIso(datetime)
+      if (new Date(datetimeIso) <= new Date()) {
+        setError('Please choose a future date and time.')
+        return
+      }
+
       const booking = await api.bookings.create(
         {
           serviceId: selectedServiceId,
@@ -132,8 +130,12 @@ export default function BookPage({ params }: BookPageProps) {
       )
 
       router.push(`/bookings/${booking.id}`)
-    } catch {
-      setError('Failed to create booking. Please try again.')
+    } catch (err) {
+      setError(
+        err instanceof RangeError
+          ? 'Please choose a valid date and time.'
+          : 'Failed to create booking. Please try again.'
+      )
     } finally {
       setSubmitting(false)
     }
@@ -150,7 +152,18 @@ export default function BookPage({ params }: BookPageProps) {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="px-4 pt-6 flex flex-col gap-5" noValidate>
+      <form
+        onSubmit={handleSubmit}
+        className="px-4 pt-6 flex flex-col gap-5"
+        aria-busy={loadingProvider || submitting}
+        noValidate
+      >
+        {(loadingProvider || submitting) && (
+          <p className="sr-only" role="status">
+            {loadingProvider ? 'Loading provider services.' : 'Submitting booking.'}
+          </p>
+        )}
+
         {error && (
           <div
             role="alert"
@@ -160,10 +173,21 @@ export default function BookPage({ params }: BookPageProps) {
           </div>
         )}
 
-        <div className="flex flex-col gap-2">
-          <FieldLabel>SERVICE</FieldLabel>
+        <fieldset className="flex flex-col gap-2">
+          <legend
+            id="service-picker-label"
+            className="font-mono text-[11px] font-bold text-ink-400 tracking-[0.08em] block mb-1.5"
+          >
+            SERVICE
+          </legend>
           {loadingProvider ? (
-            <div className="flex flex-col gap-2" aria-hidden="true">
+            <div
+              className="flex flex-col gap-2"
+              aria-busy="true"
+              aria-labelledby="service-picker-label"
+              role="status"
+            >
+              <span className="sr-only">Loading provider services.</span>
               <div className="h-[76px] rounded-card border border-ui bg-white animate-pulse" />
               <div className="h-[76px] rounded-card border border-ui bg-white animate-pulse" />
             </div>
@@ -174,7 +198,10 @@ export default function BookPage({ params }: BookPageProps) {
               </p>
             </div>
           ) : (
-            <div className="flex flex-col gap-2">
+            <div
+              className="flex flex-col gap-2"
+              aria-labelledby="service-picker-label"
+            >
               {services.map((service) => {
                 const categoryLabel =
                   SERVICE_CATEGORY_LABELS[
@@ -183,20 +210,26 @@ export default function BookPage({ params }: BookPageProps) {
                 const selected = selectedServiceId === service.id
 
                 return (
-                  <button
+                  <label
                     key={service.id}
-                    type="button"
-                    onClick={() => setSelectedServiceId(service.id)}
-                    aria-pressed={selected}
                     className={[
-                      'w-full rounded-card border bg-white p-4 text-left',
+                      'w-full rounded-card border bg-white p-4 text-left cursor-pointer',
                       'motion-safe:transition-colors duration-150',
-                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-favour-blue focus-visible:ring-offset-2',
+                      'focus-within:outline-none focus-within:ring-2 focus-within:ring-favour-blue focus-within:ring-offset-2',
                       selected
                         ? 'border-favour-blue ring-1 ring-favour-blue-mid'
                         : 'border-ui hover:border-favour-blue/60',
                     ].join(' ')}
                   >
+                    <input
+                      type="radio"
+                      name="serviceId"
+                      value={service.id}
+                      checked={selected}
+                      onChange={() => setSelectedServiceId(service.id)}
+                      required
+                      className="sr-only"
+                    />
                     <span className="flex items-start justify-between gap-3">
                       <span className="min-w-0">
                         <span className="block font-sans text-[15px] font-semibold text-favour-dark leading-snug">
@@ -217,12 +250,12 @@ export default function BookPage({ params }: BookPageProps) {
                         {formatPesoRange(service)}
                       </span>
                     </span>
-                  </button>
+                  </label>
                 )
               })}
             </div>
           )}
-        </div>
+        </fieldset>
 
         <div className="flex flex-col gap-1.5">
           <FieldLabel htmlFor="datetime">DATE &amp; TIME</FieldLabel>
