@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { SERVICE_CATEGORY_LABELS, type Service } from '@favour/shared'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/Button'
@@ -12,48 +13,140 @@ interface BookPageProps {
   params: { providerId: string }
 }
 
+function toDatetimeLocalValue(date: Date) {
+  const offsetMs = date.getTimezoneOffset() * 60_000
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16)
+}
+
+function datetimeLocalToIso(value: string) {
+  return new Date(value).toISOString()
+}
+
+function formatPesoRange(service: Service) {
+  const min = service.priceMin.toLocaleString('en-PH')
+  const max = service.priceMax.toLocaleString('en-PH')
+
+  return service.priceMin === service.priceMax ? `PHP ${min}` : `PHP ${min} - ${max}`
+}
+
 export default function BookPage({ params }: BookPageProps) {
   const router = useRouter()
   const { accessToken } = useAuthStore()
 
-  const [scheduledAt, setScheduledAt] = useState('')
+  const [services, setServices] = useState<Service[]>([])
+  const [providerName, setProviderName] = useState('Provider')
+  const [selectedServiceId, setSelectedServiceId] = useState('')
+  const [datetime, setDatetime] = useState('')
   const [address, setAddress] = useState('')
   const [notes, setNotes] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [loadingProvider, setLoadingProvider] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  const minDatetime = useMemo(() => {
+    const fiveMinutesFromNow = new Date(Date.now() + 5 * 60_000)
+    return toDatetimeLocalValue(fiveMinutesFromNow)
+  }, [])
+
+  const selectedService = services.find((service) => service.id === selectedServiceId)
+
+  useEffect(() => {
+    if (accessToken === null) {
+      router.replace('/auth/login')
+    }
+  }, [accessToken, router])
+
+  useEffect(() => {
+    let ignore = false
+
+    async function loadProvider() {
+      setLoadingProvider(true)
+      setError(null)
+
+      try {
+        const provider = await api.providers.getById(params.providerId)
+        if (ignore) return
+
+        setProviderName(provider.displayName)
+        setServices(provider.services ?? [])
+        setSelectedServiceId(provider.services?.[0]?.id ?? '')
+      } catch {
+        if (!ignore) {
+          setError('Unable to load this provider. Please go back and try again.')
+        }
+      } finally {
+        if (!ignore) {
+          setLoadingProvider(false)
+        }
+      }
+    }
+
+    loadProvider()
+
+    return () => {
+      ignore = true
+    }
+  }, [params.providerId])
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault()
     setError(null)
 
-    if (!scheduledAt || !address.trim()) {
-      setError('Please fill in the date/time and address.')
+    if (!accessToken) {
+      router.replace('/auth/login')
       return
     }
 
-    setLoading(true)
+    if (!selectedServiceId) {
+      setError('Please choose a service.')
+      return
+    }
+
+    if (!datetime) {
+      setError('Please choose a date and time.')
+      return
+    }
+
+    const datetimeIso = datetimeLocalToIso(datetime)
+    if (new Date(datetimeIso) <= new Date()) {
+      setError('Please choose a future date and time.')
+      return
+    }
+
+    if (address.trim().length < 10) {
+      setError('Please enter the full service address.')
+      return
+    }
+
+    setSubmitting(true)
     try {
       const booking = await api.bookings.create(
-        { providerId: params.providerId, scheduledAt, address: address.trim(), notes: notes.trim() || undefined },
-        accessToken ?? ''
+        {
+          serviceId: selectedServiceId,
+          providerId: params.providerId,
+          datetime: datetimeIso,
+          address: address.trim(),
+          notes: notes.trim() || undefined,
+        },
+        accessToken
       )
-      router.push(`/feed/bookings/${booking.id}`)
+
+      router.push(`/bookings/${booking.id}`)
     } catch {
       setError('Failed to create booking. Please try again.')
     } finally {
-      setLoading(false)
+      setSubmitting(false)
     }
   }
 
   return (
     <main className="min-h-screen bg-surface pb-12">
-      {/* Header */}
       <div className="bg-favour-dark px-4 pt-12 pb-6">
         <h1 className="font-display font-extrabold text-[24px] text-white leading-snug">
           Request Booking
         </h1>
         <p className="font-sans text-[14px] text-white/70 mt-1">
-          Fill in the details for your service request.
+          Choose a service from {providerName} and tell us when to send help.
         </p>
       </div>
 
@@ -67,15 +160,79 @@ export default function BookPage({ params }: BookPageProps) {
           </div>
         )}
 
+        <div className="flex flex-col gap-2">
+          <FieldLabel>SERVICE</FieldLabel>
+          {loadingProvider ? (
+            <div className="flex flex-col gap-2" aria-hidden="true">
+              <div className="h-[76px] rounded-card border border-ui bg-white animate-pulse" />
+              <div className="h-[76px] rounded-card border border-ui bg-white animate-pulse" />
+            </div>
+          ) : services.length === 0 ? (
+            <div className="rounded-card border border-ui bg-white p-4">
+              <p className="font-sans text-[14px] font-semibold text-favour-dark">
+                This provider has no services available for booking yet.
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {services.map((service) => {
+                const categoryLabel =
+                  SERVICE_CATEGORY_LABELS[
+                    service.category as keyof typeof SERVICE_CATEGORY_LABELS
+                  ] ?? service.category
+                const selected = selectedServiceId === service.id
+
+                return (
+                  <button
+                    key={service.id}
+                    type="button"
+                    onClick={() => setSelectedServiceId(service.id)}
+                    aria-pressed={selected}
+                    className={[
+                      'w-full rounded-card border bg-white p-4 text-left',
+                      'motion-safe:transition-colors duration-150',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-favour-blue focus-visible:ring-offset-2',
+                      selected
+                        ? 'border-favour-blue ring-1 ring-favour-blue-mid'
+                        : 'border-ui hover:border-favour-blue/60',
+                    ].join(' ')}
+                  >
+                    <span className="flex items-start justify-between gap-3">
+                      <span className="min-w-0">
+                        <span className="block font-sans text-[15px] font-semibold text-favour-dark leading-snug">
+                          {service.name}
+                        </span>
+                        <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span className="font-sans text-[13px] text-ink-700">
+                            {categoryLabel}
+                          </span>
+                          {service.duration && (
+                            <span className="font-mono text-[11px] font-bold text-ink-400 tracking-[0.04em]">
+                              {service.duration}
+                            </span>
+                          )}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-right font-mono text-[13px] font-extrabold text-favour-dark">
+                        {formatPesoRange(service)}
+                      </span>
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
         <div className="flex flex-col gap-1.5">
-          <FieldLabel htmlFor="scheduledAt">DATE &amp; TIME</FieldLabel>
+          <FieldLabel htmlFor="datetime">DATE &amp; TIME</FieldLabel>
           <Input
-            id="scheduledAt"
+            id="datetime"
             type="datetime-local"
-            value={scheduledAt}
-            onChange={(e) => setScheduledAt(e.target.value)}
+            value={datetime}
+            onChange={(event) => setDatetime(event.target.value)}
             required
-            min={new Date().toISOString().slice(0, 16)}
+            min={minDatetime}
           />
         </div>
 
@@ -84,7 +241,7 @@ export default function BookPage({ params }: BookPageProps) {
           <textarea
             id="address"
             value={address}
-            onChange={(e) => setAddress(e.target.value)}
+            onChange={(event) => setAddress(event.target.value)}
             required
             rows={3}
             placeholder="Enter your full address in Batangas City"
@@ -93,24 +250,50 @@ export default function BookPage({ params }: BookPageProps) {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <FieldLabel htmlFor="notes">ADDITIONAL NOTES <span className="font-sans text-[11px] font-normal text-ink-400 normal-case">(optional)</span></FieldLabel>
+          <FieldLabel htmlFor="notes">
+            ADDITIONAL NOTES{' '}
+            <span className="font-sans text-[11px] font-normal text-ink-400 normal-case">
+              (optional)
+            </span>
+          </FieldLabel>
           <textarea
             id="notes"
             value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            onChange={(event) => setNotes(event.target.value)}
             rows={3}
             placeholder="Describe the issue or any special instructions"
             className="w-full border border-ui rounded-input bg-white px-4 py-3 font-sans text-[15px] text-favour-dark placeholder:text-ink-400 focus:outline-none focus:border-favour-blue focus:ring-2 focus:ring-favour-blue/20 motion-safe:transition-colors duration-150 resize-none"
           />
         </div>
 
+        {selectedService && (
+          <div className="rounded-card border border-ui bg-white p-4">
+            <p className="font-mono text-[11px] font-bold text-ink-400 tracking-[0.08em] mb-2">
+              BOOKING SUMMARY
+            </p>
+            <p className="font-sans text-[14px] font-semibold text-favour-dark">
+              {selectedService.name}
+            </p>
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+              <p className="font-mono text-[15px] font-extrabold text-favour-dark">
+                {formatPesoRange(selectedService)}
+              </p>
+              {selectedService.duration && (
+                <p className="font-mono text-[11px] font-bold text-ink-400 tracking-[0.04em]">
+                  {selectedService.duration}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
         <Button
           type="submit"
           variant="primary"
-          disabled={loading}
+          disabled={loadingProvider || submitting || services.length === 0}
           className="w-full mt-2"
         >
-          {loading ? 'Booking…' : 'Confirm Booking'}
+          {submitting ? 'Booking...' : 'Confirm Booking'}
         </Button>
       </form>
     </main>
