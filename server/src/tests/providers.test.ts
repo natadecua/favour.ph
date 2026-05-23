@@ -49,6 +49,10 @@ const mockTx = {
   provider: { create: vi.fn().mockResolvedValue(mockCreatedProvider) },
 }
 
+const mockPrismaProvider = {
+  findMany: vi.fn().mockResolvedValue([]),
+}
+
 vi.mock('../plugins/prisma.js', async () => {
   const fp = (await import('fastify-plugin')).default
   return {
@@ -57,6 +61,7 @@ vi.mock('../plugins/prisma.js', async () => {
         user: {
           upsert: vi.fn().mockImplementation(() => Promise.resolve(upsertResult)),
         },
+        provider: mockPrismaProvider,
         $transaction: vi.fn().mockImplementation(async (fn: any) => fn(mockTx)),
       })
     }),
@@ -159,6 +164,35 @@ describe('ProvidersService', () => {
     mockRepo.findById.mockResolvedValue(null)
     await expect(ProvidersService.getById('missing', mockRepo as any))
       .rejects.toMatchObject({ statusCode: 404 })
+  })
+})
+
+describe('GET /providers?q=', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockPrismaProvider.findMany.mockResolvedValue([])
+  })
+
+  it('returns 200 with [] when q matches nothing', async () => {
+    const app = buildApp()
+    await app.ready()
+
+    const res = await app.inject({ method: 'GET', url: '/providers?q=zzznomatch' })
+
+    await app.close()
+    expect(res.statusCode).toBe(200)
+    expect(JSON.parse(res.payload)).toEqual([])
+  })
+
+  it('returns 200 with an array for empty q', async () => {
+    const app = buildApp()
+    await app.ready()
+
+    const res = await app.inject({ method: 'GET', url: '/providers?q=' })
+
+    await app.close()
+    expect(res.statusCode).toBe(200)
+    expect(Array.isArray(JSON.parse(res.payload))).toBe(true)
   })
 })
 
