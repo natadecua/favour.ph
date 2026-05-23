@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { ShieldCheck } from 'lucide-react'
 import type { ProviderSummary } from '@favour/shared'
 import { SERVICE_CATEGORY_LABELS } from '@favour/shared'
 import { cn } from '@/lib/cn'
@@ -17,14 +18,15 @@ interface ProviderCardProps {
 }
 
 export function ProviderCard({ provider }: ProviderCardProps) {
-  const { id, displayName, type, category, favourScore, baseRate, city, avatarUrl } = provider
+  const { id, displayName, type, category, favourScore, baseRate, city, avatarUrl, isVerified } =
+    provider
 
   const categoryLabel =
     SERVICE_CATEGORY_LABELS[category as keyof typeof SERVICE_CATEGORY_LABELS] ?? category
 
   return (
     <Link
-      href={`/feed/providers/${id}`}
+      href={`/providers/${id}`}
       className={cn(
         'group flex gap-4 bg-white border border-ui rounded-card p-4',
         'motion-safe:transition-shadow duration-150 hover:shadow-md',
@@ -58,14 +60,25 @@ export function ProviderCard({ provider }: ProviderCardProps) {
           <h3 className="font-display font-extrabold text-[16px] text-favour-dark leading-snug truncate">
             {displayName}
           </h3>
-          <Pill color={type === 'BUSINESS' ? 'blue' : 'green'} className="shrink-0">
-            {type === 'BUSINESS' ? 'BUSINESS' : 'FREELANCER'}
-          </Pill>
+          <div className="flex shrink-0 items-center gap-1.5">
+            {isVerified && (
+              <span
+                title="Verified provider"
+                className="inline-flex h-[24px] w-[24px] items-center justify-center rounded-full border border-ui border-green-border bg-green-light text-verify-green"
+              >
+                <ShieldCheck aria-hidden="true" size={14} strokeWidth={2.5} />
+                <span className="sr-only">Verified provider</span>
+              </span>
+            )}
+            <Pill color={type === 'BUSINESS' ? 'blue' : 'green'} className="shrink-0">
+              {type === 'BUSINESS' ? 'BUSINESS' : 'FREELANCER'}
+            </Pill>
+          </div>
         </div>
 
         {/* Category + city */}
         <p className="font-sans text-[13px] text-ink-700 mt-0.5 truncate">
-          {categoryLabel} · {city}
+          {categoryLabel} - {city}
         </p>
 
         {/* Score + rate row */}
