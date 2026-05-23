@@ -112,6 +112,49 @@ describe('ProvidersService', () => {
     expect(result).toEqual(expect.objectContaining(fake))
   })
 
+  it('maps provider detail services with providerId, duration, and verified status', async () => {
+    mockRepo.findById.mockResolvedValue({
+      id: 'provider-1',
+      displayName: 'Kuya Jose',
+      type: 'FREELANCER',
+      city: 'Batangas City',
+      isVerified: true,
+      photos: [],
+      services: [
+        {
+          id: 'svc-1',
+          providerId: 'provider-1',
+          name: 'Aircon Cleaning',
+          category: 'aircon',
+          priceMin: 500,
+          priceMax: 1500,
+          duration: '60 min',
+        },
+      ],
+      favourScore: { overall: 4.8, responseRate: 0.91 },
+      reviewsReceived: [{}],
+    })
+
+    const result = await ProvidersService.getById('provider-1', mockRepo as any)
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        isVerified: true,
+        services: [
+          {
+            id: 'svc-1',
+            providerId: 'provider-1',
+            name: 'Aircon Cleaning',
+            category: 'aircon',
+            priceMin: 500,
+            priceMax: 1500,
+            duration: '60 min',
+          },
+        ],
+      })
+    )
+  })
+
   it('throws 404 when provider not found', async () => {
     mockRepo.findById.mockResolvedValue(null)
     await expect(ProvidersService.getById('missing', mockRepo as any))
@@ -232,5 +275,44 @@ describe('POST /providers', () => {
     expect(body).toHaveProperty('services')
     expect(Array.isArray(body.services)).toBe(true)
     expect(body.services).toHaveLength(1)
+  })
+
+  it('stores null when service duration sanitizes to empty text', async () => {
+    const app = buildApp()
+    await app.ready()
+    const token = app.jwt.sign({ sub: 'user-provider', exp: Math.floor(Date.now() / 1000) + 3600 })
+    const res = await app.inject({
+      method: 'POST',
+      url: '/providers',
+      payload: {
+        ...validBody,
+        services: [
+          {
+            name: 'Aircon Cleaning',
+            category: 'aircon',
+            priceMin: 500,
+            priceMax: 1500,
+            duration: '<b></b>',
+          },
+        ],
+      },
+      headers: { authorization: `Bearer ${token}` },
+    })
+    await app.close()
+
+    expect(res.statusCode).toBe(201)
+    expect(mockTx.provider.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          services: {
+            create: [
+              expect.objectContaining({
+                duration: null,
+              }),
+            ],
+          },
+        }),
+      })
+    )
   })
 })

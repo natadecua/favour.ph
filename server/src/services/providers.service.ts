@@ -10,6 +10,12 @@ function sanitize(str: string): string {
   return sanitizeHtml(str, { allowedTags: [], allowedAttributes: {} })
 }
 
+function sanitizeOptional(str: string | undefined): string | null {
+  if (!str) return null
+  const sanitized = sanitize(str)
+  return sanitized || null
+}
+
 function toSummary(p: any) {
   return {
     id: p.id,
@@ -34,6 +40,7 @@ function toDetail(p: any) {
     reviewCount: p.reviewsReceived?.length ?? 0,
     services: (p.services ?? []).map((s: any) => ({
       id: s.id,
+      providerId: s.providerId,
       name: s.name,
       category: s.category,
       priceMin: s.priceMin,
@@ -75,7 +82,7 @@ export const ProvidersService = {
               category: service.category,
               priceMin: service.priceMin,
               priceMax: service.priceMax,
-              duration: service.duration ? sanitize(service.duration) : null,
+              duration: sanitizeOptional(service.duration),
             })),
           },
         },
