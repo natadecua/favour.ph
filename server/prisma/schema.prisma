@@ -70,6 +70,7 @@ model Service {
   category   String
   priceMin   Int
   priceMax   Int
+  duration   String?
   bookings   Booking[]
   createdAt  DateTime        @default(now())
 }
