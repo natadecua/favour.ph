@@ -13,6 +13,14 @@ export function createProvidersRepo(prisma: PrismaClient): ProvidersRepoInterfac
         where: {
           ...(query.category ? { services: { some: { category: query.category } } } : {}),
           ...(query.type !== 'all' ? { type: query.type.toUpperCase() as any } : {}),
+          ...(query.q
+            ? {
+                OR: [
+                  { displayName: { contains: query.q, mode: 'insensitive' as const } },
+                  { services: { some: { name: { contains: query.q, mode: 'insensitive' as const } } } },
+                ],
+              }
+            : {}),
         },
         include: { services: true, favourScore: true },
         skip: (query.page - 1) * query.limit,
