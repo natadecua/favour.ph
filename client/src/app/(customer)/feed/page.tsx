@@ -2,17 +2,20 @@ import { Suspense } from 'react'
 import Link from 'next/link'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/cn'
+import { SearchInput } from '@/components/feed/SearchInput'
 import { ProviderCard } from '@/components/providers/ProviderCard'
 import { ProviderCardSkeleton } from '@/components/providers/ProviderCardSkeleton'
 import { SERVICE_CATEGORIES, SERVICE_CATEGORY_LABELS } from '@favour/shared'
 
 interface FeedPageProps {
-  searchParams: { category?: string }
+  searchParams: { category?: string; type?: string; q?: string }
 }
 
-async function ProviderList({ category }: { category?: string }) {
+async function ProviderList({ category, type, q }: { category?: string; type?: string; q?: string }) {
   const params: Record<string, string> = {}
   if (category) params.category = category
+  if (type) params.type = type
+  if (q) params.q = q
 
   const providers = await api.providers.feed(params).catch(() => [])
 
@@ -73,17 +76,44 @@ function ProviderListSkeleton() {
 
 export default function FeedPage({ searchParams }: FeedPageProps) {
   const activeCategory = searchParams.category ?? null
+  const activeType = searchParams.type
+  const activeQuery = searchParams.q?.trim() || undefined
+
+  function feedHref(category?: string) {
+    const params = new URLSearchParams()
+    if (category) params.set('category', category)
+    if (activeType) params.set('type', activeType)
+    if (activeQuery) params.set('q', activeQuery)
+
+    const queryString = params.toString()
+    return queryString ? `/feed?${queryString}` : '/feed'
+  }
 
   return (
     <main className="min-h-screen bg-surface pb-24">
       {/* Header */}
       <div className="bg-favour-dark px-4 pt-12 pb-5">
-        <h1 className="font-display font-extrabold text-[26px] text-white leading-tight">
-          Find a Provider
-        </h1>
-        <p className="font-sans text-[14px] text-white/70 mt-1">
-          Verified home service providers in Batangas City
-        </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="font-display font-extrabold text-[26px] text-white leading-tight">
+              Find a Provider
+            </h1>
+            <p className="font-sans text-[14px] text-white/70 mt-1">
+              Verified home service providers in Batangas City
+            </p>
+          </div>
+          <Link
+            href="/bookings"
+            className="shrink-0 font-mono text-[11px] font-bold text-white/70 tracking-[0.08em] hover:text-white motion-safe:transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+          >
+            MY BOOKINGS
+          </Link>
+        </div>
+      </div>
+
+      {/* Search */}
+      <div className="bg-white px-4 py-3 border-b border-ui">
+        <SearchInput />
       </div>
 
       {/* Category filter nav */}
@@ -98,7 +128,7 @@ export default function FeedPage({ searchParams }: FeedPageProps) {
         >
           {/* All option */}
           <Link
-            href="/feed"
+            href={feedHref()}
             className={cn(
               'shrink-0 inline-flex items-center h-[36px] px-4 rounded-pill border border-ui',
               'font-mono text-[12px] font-bold tracking-[0.04em] touch-target',
@@ -118,7 +148,7 @@ export default function FeedPage({ searchParams }: FeedPageProps) {
             return (
               <Link
                 key={cat}
-                href={`/feed?category=${cat}`}
+                href={feedHref(cat)}
                 className={cn(
                   'shrink-0 inline-flex items-center h-[36px] px-4 rounded-pill border border-ui',
                   'font-mono text-[12px] font-bold tracking-[0.04em] touch-target',
@@ -139,7 +169,7 @@ export default function FeedPage({ searchParams }: FeedPageProps) {
       {/* Provider list */}
       <div className="px-4 pt-4">
         <Suspense fallback={<ProviderListSkeleton />}>
-          <ProviderList category={activeCategory ?? undefined} />
+          <ProviderList category={activeCategory ?? undefined} type={activeType} q={activeQuery} />
         </Suspense>
       </div>
     </main>
