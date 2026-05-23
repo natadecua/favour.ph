@@ -182,6 +182,16 @@ describe('GET /providers?q=', () => {
     await app.close()
     expect(res.statusCode).toBe(200)
     expect(JSON.parse(res.payload)).toEqual([])
+    expect(mockPrismaProvider.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: expect.arrayContaining([
+            { displayName: { contains: 'zzznomatch', mode: 'insensitive' } },
+            { services: { some: { name: { contains: 'zzznomatch', mode: 'insensitive' } } } },
+          ]),
+        }),
+      })
+    )
   })
 
   it('returns 200 with an array for empty q', async () => {
@@ -193,6 +203,13 @@ describe('GET /providers?q=', () => {
     await app.close()
     expect(res.statusCode).toBe(200)
     expect(Array.isArray(JSON.parse(res.payload))).toBe(true)
+    expect(mockPrismaProvider.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.not.objectContaining({
+          OR: expect.anything(),
+        }),
+      })
+    )
   })
 })
 
