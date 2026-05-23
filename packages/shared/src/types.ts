@@ -53,6 +53,9 @@ export interface Booking {
   address: string
   notes: string | null
   createdAt: string
+  // Populated when fetching list/detail (Prisma include)
+  service?: { id: string; name: string; category: string; priceMin: number; priceMax: number }
+  provider?: { id: string; displayName: string }
 }
 
 export interface Review {
