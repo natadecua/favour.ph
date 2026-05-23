@@ -12,13 +12,6 @@ import type {
 
 const BASE = process.env.NEXT_PUBLIC_API_URL!
 
-type LegacyCreateBookingInput = {
-  providerId: string
-  scheduledAt: string
-  address: string
-  notes?: string
-}
-
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     ...init,
@@ -44,7 +37,7 @@ export const api = {
       }),
   },
   bookings: {
-    create: (body: CreateBookingInput | LegacyCreateBookingInput, token: string) =>
+    create: (body: CreateBookingInput, token: string) =>
       request<Booking>('/bookings', {
         method: 'POST', body: JSON.stringify(body),
         headers: { Authorization: `Bearer ${token}` },
