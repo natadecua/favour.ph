@@ -39,6 +39,7 @@ export interface Service {
   category: ServiceCategory
   priceMin: number
   priceMax: number
+  duration: string | null
 }
 
 export interface Booking {
@@ -90,9 +91,19 @@ export interface ProviderSummary {
   type: ProviderType
   city: string
   isVerified: boolean
-  photo: string | null
-  favourScore: number | null
-  topService: Pick<Service, 'name' | 'category' | 'priceMin' | 'priceMax'> | null
+  category: string
+  baseRate: number
+  avatarUrl: string | null
+  favourScore: number
+}
+
+export interface ProviderDetail extends ProviderSummary {
+  bio: string | null
+  yearsExperience: number | null
+  completedBookings: number
+  responseRate: number
+  reviewCount: number
+  services: Service[]
 }
 
 export type ServiceCategory =

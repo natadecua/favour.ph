@@ -5,7 +5,6 @@ import type { ServiceCategory } from './types'
 export const CreateBookingSchema = z.object({
   serviceId: z.string().uuid(),
   providerId: z.string().uuid(),
-  providerType: z.enum(['business', 'freelancer']),
   datetime: z.string().datetime().refine(
     d => new Date(d) > new Date(),
     'Booking must be in the future'
@@ -40,6 +39,7 @@ export const ProviderFeedQuerySchema = z.object({
   lng: z.coerce.number().optional(),
   page: z.coerce.number().int().positive().optional().default(1),
   limit: z.coerce.number().int().max(20).optional().default(10),
+  q: z.string().trim().max(100).optional(),
 })
 
 export const CreateProviderSchema = z.object({
@@ -67,6 +67,7 @@ export const CreateProviderSchema = z.object({
         category: z.enum(SERVICE_CATEGORIES as [ServiceCategory, ...ServiceCategory[]]),
         priceMin: z.number().int().positive().max(100_000),
         priceMax: z.number().int().positive().max(100_000),
+        duration: z.string().trim().max(30).optional(),
       })
     )
     .min(1, 'Add at least one service')
