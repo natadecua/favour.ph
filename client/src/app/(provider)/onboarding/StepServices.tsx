@@ -13,6 +13,7 @@ export interface ServiceEntry {
   category: ServiceCategory | ''
   priceMin: string
   priceMax: string
+  duration: string  // e.g. "60 min" — empty string means not set
 }
 
 interface StepServicesProps {
@@ -62,7 +63,7 @@ export function StepServices({ services, onChange, onNext, onBack }: StepService
 
   function addService() {
     if (services.length >= 10) return
-    onChange([...services, { name: '', category: '', priceMin: '', priceMax: '' }])
+    onChange([...services, { name: '', category: '', priceMin: '', priceMax: '', duration: '' }])
   }
 
   function removeService(index: number) {
@@ -163,6 +164,19 @@ export function StepServices({ services, onChange, onNext, onBack }: StepService
                     placeholder="1500"
                   />
                 </div>
+              </div>
+
+              <div>
+                <FieldLabel htmlFor={`service-duration-${index}`}>
+                  DURATION <span className="font-body font-normal normal-case">(optional)</span>
+                </FieldLabel>
+                <Input
+                  id={`service-duration-${index}`}
+                  value={service.duration}
+                  onChange={(event) => updateService(index, { duration: event.target.value })}
+                  placeholder="e.g. 60 min, 2–3 hrs"
+                  maxLength={30}
+                />
               </div>
             </div>
           </div>

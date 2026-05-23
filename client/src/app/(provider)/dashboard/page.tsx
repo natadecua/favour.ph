@@ -106,7 +106,7 @@ function BookingCard({ booking, onAction, token }: BookingCardProps) {
             Scheduled
           </dt>
           <dd className="font-sans text-[13px] text-[#111827]">
-            {formatDate(booking.scheduledAt)}
+            {formatDate(booking.datetime)}
           </dd>
         </div>
         <div className="flex gap-2">

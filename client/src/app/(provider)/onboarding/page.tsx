@@ -32,7 +32,7 @@ export default function OnboardingPage() {
     bio: '',
     city: '',
     photoPath: null,
-    services: [{ name: '', category: '', priceMin: '', priceMax: '' }],
+    services: [{ name: '', category: '', priceMin: '', priceMax: '', duration: '' }],
   })
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -49,6 +49,7 @@ export default function OnboardingPage() {
       category: service.category as ServiceCategory,
       priceMin: Number.parseInt(service.priceMin, 10),
       priceMax: Number.parseInt(service.priceMax, 10),
+      ...(service.duration.trim() ? { duration: service.duration.trim() } : {}),
     }))
 
     return {
