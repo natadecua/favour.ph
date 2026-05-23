@@ -8,16 +8,58 @@ import { ProviderCardSkeleton } from '@/components/providers/ProviderCardSkeleto
 import { SERVICE_CATEGORIES, SERVICE_CATEGORY_LABELS } from '@favour/shared'
 
 interface FeedPageProps {
-  searchParams: { category?: string; type?: string; q?: string }
+  searchParams: Record<string, string | string[] | undefined>
 }
 
-async function ProviderList({ category, type, q }: { category?: string; type?: string; q?: string }) {
-  const params: Record<string, string> = {}
-  if (category) params.category = category
-  if (type) params.type = type
-  if (q) params.q = q
+function firstParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value
+}
 
-  const providers = await api.providers.feed(params).catch(() => [])
+function toUrlSearchParams(searchParams: FeedPageProps['searchParams']) {
+  const params = new URLSearchParams()
+
+  Object.entries(searchParams).forEach(([key, value]) => {
+    if (Array.isArray(value)) {
+      value.forEach((item) => params.append(key, item))
+      return
+    }
+
+    if (value !== undefined) {
+      params.set(key, value)
+    }
+  })
+
+  return params
+}
+
+function feedHref(searchParams: FeedPageProps['searchParams'], category?: string) {
+  const params = toUrlSearchParams(searchParams)
+
+  if (category) {
+    params.set('category', category)
+  } else {
+    params.delete('category')
+  }
+
+  params.delete('page')
+
+  const queryString = params.toString()
+  return queryString ? `/feed?${queryString}` : '/feed'
+}
+
+async function ProviderList({
+  params,
+  category,
+  browseAllHref,
+}: {
+  params: Record<string, string>
+  category?: string
+  browseAllHref: string
+}) {
+  const feedParams = { ...params }
+  if (!feedParams.q?.trim()) delete feedParams.q
+
+  const providers = await api.providers.feed(feedParams).catch(() => [])
 
   if (providers.length === 0) {
     const categoryLabel = category
@@ -26,22 +68,17 @@ async function ProviderList({ category, type, q }: { category?: string; type?: s
 
     return (
       <div className="flex flex-col items-center justify-center text-center py-16 px-6">
-        <div className="w-[64px] h-[64px] rounded-[10px] bg-surface flex items-center justify-center mb-4">
-          <span className="font-mono text-[28px]" aria-hidden="true">
-            🔍
-          </span>
-        </div>
         <h2 className="font-display font-extrabold text-[20px] text-favour-dark mb-2">
           No providers found
         </h2>
         <p className="font-sans text-[14px] text-ink-700 max-w-[320px] leading-relaxed">
           {categoryLabel
-            ? `No ${categoryLabel} providers in Batangas City yet. We're onboarding more — check back soon or try another category.`
-            : "No providers in Batangas City yet. We're onboarding more — check back soon."}
+            ? `No ${categoryLabel} providers in Batangas City yet. We're onboarding more - check back soon or try another category.`
+            : "No providers in Batangas City yet. We're onboarding more - check back soon."}
         </p>
         {category && (
           <Link
-            href="/feed"
+            href={browseAllHref}
             className="mt-6 font-display font-extrabold text-[15px] text-favour-blue touch-target flex items-center justify-center"
           >
             Browse all categories
@@ -75,19 +112,9 @@ function ProviderListSkeleton() {
 }
 
 export default function FeedPage({ searchParams }: FeedPageProps) {
-  const activeCategory = searchParams.category ?? null
-  const activeType = searchParams.type
-  const activeQuery = searchParams.q?.trim() || undefined
-
-  function feedHref(category?: string) {
-    const params = new URLSearchParams()
-    if (category) params.set('category', category)
-    if (activeType) params.set('type', activeType)
-    if (activeQuery) params.set('q', activeQuery)
-
-    const queryString = params.toString()
-    return queryString ? `/feed?${queryString}` : '/feed'
-  }
+  const activeCategory = firstParam(searchParams.category) ?? null
+  const apiParams = Object.fromEntries(toUrlSearchParams(searchParams))
+  const browseAllHref = feedHref(searchParams)
 
   return (
     <main className="min-h-screen bg-surface pb-24">
@@ -128,7 +155,7 @@ export default function FeedPage({ searchParams }: FeedPageProps) {
         >
           {/* All option */}
           <Link
-            href={feedHref()}
+            href={browseAllHref}
             className={cn(
               'shrink-0 inline-flex items-center h-[36px] px-4 rounded-pill border border-ui',
               'font-mono text-[12px] font-bold tracking-[0.04em] touch-target',
@@ -148,7 +175,7 @@ export default function FeedPage({ searchParams }: FeedPageProps) {
             return (
               <Link
                 key={cat}
-                href={feedHref(cat)}
+                href={feedHref(searchParams, cat)}
                 className={cn(
                   'shrink-0 inline-flex items-center h-[36px] px-4 rounded-pill border border-ui',
                   'font-mono text-[12px] font-bold tracking-[0.04em] touch-target',
@@ -169,7 +196,11 @@ export default function FeedPage({ searchParams }: FeedPageProps) {
       {/* Provider list */}
       <div className="px-4 pt-4">
         <Suspense fallback={<ProviderListSkeleton />}>
-          <ProviderList category={activeCategory ?? undefined} type={activeType} q={activeQuery} />
+          <ProviderList
+            params={apiParams}
+            category={activeCategory ?? undefined}
+            browseAllHref={browseAllHref}
+          />
         </Suspense>
       </div>
     </main>

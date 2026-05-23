@@ -11,6 +11,7 @@ export function SearchInput() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const searchParamsString = searchParams.toString()
   const currentQuery = searchParams.get('q') ?? ''
   const [value, setValue] = useState(currentQuery)
 
@@ -24,7 +25,7 @@ export function SearchInput() {
 
       if (nextQuery === currentQuery) return
 
-      const params = new URLSearchParams(searchParams.toString())
+      const params = new URLSearchParams(searchParamsString)
       if (nextQuery) {
         params.set('q', nextQuery)
       } else {
@@ -36,7 +37,7 @@ export function SearchInput() {
     }, SEARCH_DEBOUNCE_MS)
 
     return () => window.clearTimeout(handle)
-  }, [currentQuery, pathname, router, searchParams, value])
+  }, [currentQuery, pathname, router, searchParamsString, value])
 
   return (
     <div className="relative">
