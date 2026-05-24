@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { BOOKINGS_ROUTE, LOGIN_ROUTE } from '@/lib/app-state'
 import { BookingConfirmed } from '@/components/bookings/BookingConfirmed'
 import { BookingStatusBadge } from '@/components/ui/BookingStatusBadge'
 import { useAuthStore } from '@/stores/auth'
@@ -43,7 +44,7 @@ function BookingDetailError() {
     <main className="min-h-screen bg-surface pb-12">
       <div className="bg-favour-dark px-4 pt-12 pb-6">
         <Link
-          href="/bookings"
+          href={BOOKINGS_ROUTE}
           className="font-mono text-[12px] font-bold text-white/60 tracking-[0.08em] hover:text-white/90 motion-safe:transition-colors duration-150"
         >
           &larr; MY BOOKINGS
@@ -64,7 +65,7 @@ function BookingDetailError() {
         </div>
 
         <Link
-          href="/bookings"
+          href={BOOKINGS_ROUTE}
           className="mt-4 flex items-center justify-center h-btn rounded-btn border border-ui text-favour-blue font-display font-extrabold text-[17px] touch-target w-full motion-safe:transition-opacity duration-150 hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-favour-blue focus-visible:ring-offset-2"
         >
           My Bookings
@@ -82,7 +83,7 @@ export default function BookingPage() {
 
   useEffect(() => {
     if (!accessToken) {
-      router.replace('/auth/login')
+      router.replace(LOGIN_ROUTE)
     }
   }, [accessToken, router])
 
@@ -112,7 +113,7 @@ export default function BookingPage() {
       {/* Header */}
       <div className="bg-favour-dark px-4 pt-12 pb-6">
         <Link
-          href="/bookings"
+          href={BOOKINGS_ROUTE}
           className="font-mono text-[12px] font-bold text-white/60 tracking-[0.08em] hover:text-white/90 motion-safe:transition-colors duration-150"
         >
           &larr; MY BOOKINGS
@@ -187,7 +188,7 @@ export default function BookingPage() {
         )}
 
         <Link
-          href="/bookings"
+          href={BOOKINGS_ROUTE}
           className="flex items-center justify-center h-btn rounded-btn border border-ui text-favour-blue font-display font-extrabold text-[17px] touch-target w-full motion-safe:transition-opacity duration-150 hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-favour-blue focus-visible:ring-offset-2 mt-2"
         >
           My Bookings

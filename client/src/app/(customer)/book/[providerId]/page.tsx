@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { SERVICE_CATEGORY_LABELS, type Service } from '@favour/shared'
 import { api } from '@/lib/api'
+import { BOOKINGS_ROUTE, LOGIN_ROUTE } from '@/lib/app-state'
 import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -63,7 +64,7 @@ export default function BookPage({ params }: BookPageProps) {
 
   useEffect(() => {
     if (accessToken === null) {
-      router.replace('/auth/login')
+      router.replace(LOGIN_ROUTE)
     }
   }, [accessToken, router])
 
@@ -91,7 +92,7 @@ export default function BookPage({ params }: BookPageProps) {
     setError(null)
 
     if (!accessToken) {
-      router.replace('/auth/login')
+      router.replace(LOGIN_ROUTE)
       return
     }
 
@@ -129,7 +130,7 @@ export default function BookPage({ params }: BookPageProps) {
         accessToken
       )
 
-      router.push(`/bookings/${booking.id}`)
+      router.push(`${BOOKINGS_ROUTE}/${booking.id}`)
     } catch (err) {
       setError(
         err instanceof RangeError

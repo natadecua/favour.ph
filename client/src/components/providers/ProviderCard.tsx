@@ -15,24 +15,24 @@ function getInitials(displayName: string): string {
 
 interface ProviderCardProps {
   provider: ProviderSummary
+  disabled?: boolean
 }
 
-export function ProviderCard({ provider }: ProviderCardProps) {
+export function ProviderCard({ provider, disabled = false }: ProviderCardProps) {
   const { id, displayName, type, category, favourScore, baseRate, city, avatarUrl, isVerified } =
     provider
 
   const categoryLabel =
     SERVICE_CATEGORY_LABELS[category as keyof typeof SERVICE_CATEGORY_LABELS] ?? category
 
-  return (
-    <Link
-      href={`/providers/${id}`}
-      className={cn(
-        'group flex gap-4 bg-white border border-ui rounded-card p-4',
-        'motion-safe:transition-shadow duration-150 hover:shadow-md',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-favour-blue focus-visible:ring-offset-2'
-      )}
-    >
+  const className = cn(
+    'group flex gap-4 bg-white border border-ui rounded-card p-4',
+    disabled ? 'cursor-default' : 'motion-safe:transition-shadow duration-150 hover:shadow-md',
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-favour-blue focus-visible:ring-offset-2'
+  )
+
+  const content = (
+    <>
       {/* Avatar */}
       <div className="shrink-0">
         {avatarUrl ? (
@@ -100,7 +100,22 @@ export function ProviderCard({ provider }: ProviderCardProps) {
             </span>
           </div>
         </div>
+        {disabled && (
+          <p className="mt-3 font-mono text-[11px] font-bold tracking-[0.08em] text-favour-blue">
+            PREVIEW ONLY
+          </p>
+        )}
       </div>
+    </>
+  )
+
+  if (disabled) {
+    return <article className={className}>{content}</article>
+  }
+
+  return (
+    <Link href={`/providers/${id}`} className={className}>
+      {content}
     </Link>
   )
 }

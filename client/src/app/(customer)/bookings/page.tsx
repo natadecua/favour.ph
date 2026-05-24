@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { BOOKINGS_ROUTE, FEED_ROUTE, getCustomerBookings } from '@/lib/app-state'
 import { useAuthStore } from '@/stores/auth'
 import { BookingStatusBadge } from '@/components/ui/BookingStatusBadge'
 import type { Booking } from '@favour/shared'
@@ -22,57 +23,75 @@ function formatDate(iso: string) {
   })
 }
 
-function BookingCard({ booking }: { booking: Booking }) {
-  return (
-    <Link
-      href={`/bookings/${booking.id}`}
-      className="block bg-white border border-ui rounded-card p-4 motion-safe:transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-favour-blue focus-visible:ring-offset-2"
-    >
-      <div className="flex items-start justify-between gap-3 mb-2">
-        <p className="font-mono text-[18px] font-extrabold text-favour-dark leading-none">
+function BookingCard({ booking, disabled = false }: { booking: Booking; disabled?: boolean }) {
+  const className =
+    'block rounded-card border border-ui bg-white p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-favour-blue focus-visible:ring-offset-2'
+
+  const content = (
+    <>
+      <div className="mb-2 flex items-start justify-between gap-3">
+        <p className="font-mono text-[18px] font-extrabold leading-none text-favour-dark">
           {booking.referenceCode}
         </p>
         <BookingStatusBadge status={booking.status} />
       </div>
       {booking.service && (
-        <p className="font-sans text-[14px] font-semibold text-favour-dark mt-1">
+        <p className="mt-1 font-sans text-[14px] font-semibold text-favour-dark">
           {booking.service.name}
         </p>
       )}
       {booking.provider && (
-        <p className="font-sans text-[13px] text-ink-700 mt-0.5">
+        <p className="mt-0.5 font-sans text-[13px] text-ink-700">
           {booking.provider.displayName}
         </p>
       )}
-      <p className="font-mono text-[12px] text-ink-400 mt-2 tracking-[0.02em]">
+      <p className="mt-2 font-mono text-[12px] tracking-[0.02em] text-ink-400">
         {formatDate(booking.datetime)}
       </p>
+      {disabled && (
+        <p className="mt-3 font-mono text-[11px] font-bold tracking-[0.08em] text-favour-blue">
+          PREVIEW ONLY
+        </p>
+      )}
+    </>
+  )
+
+  if (disabled) {
+    return <article className={className}>{content}</article>
+  }
+
+  return (
+    <Link
+      href={`${BOOKINGS_ROUTE}/${booking.id}`}
+      className={`${className} motion-safe:transition-shadow hover:shadow-md`}
+    >
+      {content}
     </Link>
   )
 }
 
 function SkeletonCard() {
   return (
-    <div className="bg-white border border-ui rounded-card p-4 animate-pulse" aria-hidden="true">
-      <div className="flex justify-between mb-3">
-        <div className="h-5 w-36 bg-surface rounded" />
-        <div className="h-5 w-20 bg-surface rounded-full" />
+    <div className="animate-pulse rounded-card border border-ui bg-white p-4" aria-hidden="true">
+      <div className="mb-3 flex justify-between">
+        <div className="h-5 w-36 rounded bg-surface" />
+        <div className="h-5 w-20 rounded-full bg-surface" />
       </div>
-      <div className="h-4 w-48 bg-surface rounded mb-2" />
-      <div className="h-3 w-32 bg-surface rounded" />
+      <div className="mb-2 h-4 w-48 rounded bg-surface" />
+      <div className="h-3 w-32 rounded bg-surface" />
     </div>
   )
 }
 
 export default function BookingsPage() {
   const router = useRouter()
-  const { accessToken } = useAuthStore()
+  const { accessToken, hasHydrated } = useAuthStore()
 
   useEffect(() => {
-    if (accessToken === null) {
-      router.replace('/auth/login')
+    if (hasHydrated && accessToken === null) {
+      router.replace('/login')
     }
-  }, [accessToken, router])
+  }, [accessToken, hasHydrated, router])
 
   const { data: bookings, isLoading } = useQuery({
     queryKey: ['bookings', 'customer'],
@@ -80,50 +99,51 @@ export default function BookingsPage() {
     enabled: !!accessToken,
   })
 
+  const displayBookings = getCustomerBookings(bookings ?? [])
+  const isShowingMockBookings =
+    hasHydrated && !!accessToken && !isLoading && (!bookings || bookings.length === 0)
+
   return (
     <main className="min-h-screen bg-surface pb-24">
-      {/* Header */}
-      <div className="bg-favour-dark px-4 pt-12 pb-5">
+      <div className="bg-favour-dark px-4 pb-5 pt-12">
         <Link
-          href="/feed"
-          className="font-mono text-[11px] font-bold text-white/60 tracking-[0.08em] hover:text-white/90 motion-safe:transition-colors duration-150"
+          href={FEED_ROUTE}
+          className="font-mono text-[11px] font-bold tracking-[0.08em] text-white/60 motion-safe:transition-colors duration-150 hover:text-white/90"
         >
-          ← BACK TO FEED
+          Back to feed
         </Link>
-        <h1 className="font-display font-extrabold text-[26px] text-white leading-tight mt-3">
+        <h1 className="mt-3 font-display text-[26px] font-extrabold leading-tight text-white">
           My Bookings
         </h1>
       </div>
 
-      <div className="px-4 pt-4 flex flex-col gap-3">
-        {isLoading || !accessToken ? (
+      <div className="flex flex-col gap-3 px-4 pt-4">
+        {isLoading || !hasHydrated || !accessToken ? (
           <>
             <SkeletonCard />
             <SkeletonCard />
             <SkeletonCard />
           </>
-        ) : !bookings || bookings.length === 0 ? (
-          <div className="flex flex-col items-center justify-center text-center py-16 px-6">
-            <div className="w-[64px] h-[64px] rounded-[10px] bg-white border border-ui flex items-center justify-center mb-4">
-              <span className="font-mono text-[28px]" aria-hidden="true">📋</span>
-            </div>
-            <h2 className="font-display font-extrabold text-[20px] text-favour-dark mb-2">
-              No bookings yet
-            </h2>
-            <p className="font-sans text-[14px] text-ink-700 max-w-[300px] leading-relaxed">
-              Find a provider and request a service to get started.
-            </p>
-            <Link
-              href="/feed"
-              className="mt-6 flex items-center justify-center h-btn rounded-btn bg-favour-blue text-white font-display font-extrabold text-[17px] touch-target px-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-favour-blue focus-visible:ring-offset-2"
-            >
-              Find a Provider
-            </Link>
-          </div>
         ) : (
-          bookings.map((booking) => (
-            <BookingCard key={booking.id} booking={booking} />
-          ))
+          <>
+            {isShowingMockBookings && (
+              <div className="rounded-card border border-dashed border-favour-blue/30 bg-white px-4 py-3">
+                <p className="font-mono text-[11px] font-bold tracking-[0.08em] text-favour-blue">
+                  SAMPLE BOOKINGS
+                </p>
+                <p className="mt-1 font-sans text-[13px] leading-relaxed text-ink-700">
+                  Live bookings are empty right now, so these preview cards are shown to keep the page from feeling blank.
+                </p>
+              </div>
+            )}
+            {displayBookings.map((booking) => (
+              <BookingCard
+                key={booking.id}
+                booking={booking}
+                disabled={booking.id.startsWith('mock-booking-')}
+              />
+            ))}
+          </>
         )}
       </div>
     </main>

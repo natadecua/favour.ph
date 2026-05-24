@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import type { BookingStatus } from '@favour/shared'
 import { CheckCircle, MessageCircle } from 'lucide-react'
+import { BOOKINGS_ROUTE, FEED_ROUTE } from '@/lib/app-state'
 
 interface BookingConfirmedProps {
   referenceCode: string
@@ -90,13 +91,13 @@ export function BookingConfirmed({
       {/* Action links */}
       <div className="flex flex-col gap-3 pt-1">
         <Link
-          href="/feed/bookings"
+          href={BOOKINGS_ROUTE}
           className="flex items-center justify-center h-btn rounded-btn bg-favour-blue text-white font-display font-extrabold text-[17px] touch-target w-full motion-safe:transition-opacity duration-150 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-favour-blue focus-visible:ring-offset-2"
         >
           View My Bookings
         </Link>
         <Link
-          href="/feed"
+          href={FEED_ROUTE}
           className="flex items-center justify-center h-btn rounded-btn border border-ui text-favour-blue font-display font-extrabold text-[17px] touch-target w-full motion-safe:transition-opacity duration-150 hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-favour-blue focus-visible:ring-offset-2"
         >
           Book Another Service

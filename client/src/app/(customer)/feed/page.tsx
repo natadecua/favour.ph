@@ -1,6 +1,7 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { api } from '@/lib/api'
+import { BOOKINGS_ROUTE, FEED_ROUTE, getFeedProviders } from '@/lib/app-state'
 import { cn } from '@/lib/cn'
 import { SearchInput } from '@/components/feed/SearchInput'
 import { ProviderCard } from '@/components/providers/ProviderCard'
@@ -44,7 +45,7 @@ function feedHref(searchParams: FeedPageProps['searchParams'], category?: string
   params.delete('page')
 
   const queryString = params.toString()
-  return queryString ? `/feed?${queryString}` : '/feed'
+  return queryString ? `${FEED_ROUTE}?${queryString}` : FEED_ROUTE
 }
 
 function clearSearchHref(searchParams: FeedPageProps['searchParams']) {
@@ -53,7 +54,7 @@ function clearSearchHref(searchParams: FeedPageProps['searchParams']) {
   params.delete('page')
 
   const queryString = params.toString()
-  return queryString ? `/feed?${queryString}` : '/feed'
+  return queryString ? `${FEED_ROUTE}?${queryString}` : FEED_ROUTE
 }
 
 async function ProviderList({
@@ -71,7 +72,9 @@ async function ProviderList({
   if (!feedParams.q?.trim()) delete feedParams.q
   const query = feedParams.q?.trim()
 
-  const providers = await api.providers.feed(feedParams).catch(() => [])
+  const liveProviders = await api.providers.feed(feedParams).catch(() => [])
+  const providers = getFeedProviders(liveProviders)
+  const isShowingMockProviders = liveProviders.length === 0
 
   if (providers.length === 0) {
     const categoryLabel = category
@@ -111,13 +114,25 @@ async function ProviderList({
   }
 
   return (
-    <ul className="flex flex-col gap-3" role="list">
-      {providers.map((provider) => (
-        <li key={provider.id}>
-          <ProviderCard provider={provider} />
-        </li>
-      ))}
-    </ul>
+    <div className="flex flex-col gap-3">
+      {isShowingMockProviders && (
+        <div className="rounded-card border border-dashed border-favour-blue/30 bg-white px-4 py-3">
+          <p className="font-mono text-[11px] font-bold tracking-[0.08em] text-favour-blue">
+            SAMPLE PROVIDERS
+          </p>
+          <p className="mt-1 font-sans text-[13px] leading-relaxed text-ink-700">
+            Live providers are still empty, so these preview cards are shown for now.
+          </p>
+        </div>
+      )}
+      <ul className="flex flex-col gap-3" role="list">
+        {providers.map((provider) => (
+          <li key={provider.id}>
+            <ProviderCard provider={provider} disabled={provider.id.startsWith('mock-provider-')} />
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 
@@ -153,7 +168,7 @@ export default function FeedPage({ searchParams }: FeedPageProps) {
             </p>
           </div>
           <Link
-            href="/bookings"
+            href={BOOKINGS_ROUTE}
             className="shrink-0 font-mono text-[11px] font-bold text-white/70 tracking-[0.08em] hover:text-white motion-safe:transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
           >
             MY BOOKINGS
