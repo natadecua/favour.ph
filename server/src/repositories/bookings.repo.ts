@@ -1,5 +1,6 @@
 import type { PrismaClient } from '@prisma/client'
-import type { BookingStatus } from '@favour/shared'
+
+type PersistedBookingStatus = 'PENDING' | 'CONFIRMED' | 'DECLINED' | 'COMPLETED' | 'CANCELLED'
 
 export function createBookingsRepo(prisma: PrismaClient) {
   return {
@@ -22,7 +23,7 @@ export function createBookingsRepo(prisma: PrismaClient) {
       })
     },
 
-    async updateStatus(id: string, status: BookingStatus, data?: { notes?: string }) {
+    async updateStatus(id: string, status: PersistedBookingStatus, data?: { notes?: string }) {
       return prisma.booking.update({ where: { id }, data: { status, ...data } })
     },
 

@@ -18,7 +18,7 @@ export const ProvidersController = {
   },
 
   async create(req: FastifyRequest, reply: FastifyReply) {
-    const user = req.user as any
+    const user = req.authUser
 
     if (user.role !== 'PROVIDER') {
       return reply.code(403).send({ error: 'Forbidden' })

@@ -11,7 +11,7 @@ const SignUploadBody = z.object({
 export const UploadsController = {
   async sign(req: FastifyRequest, reply: FastifyReply) {
     const body = SignUploadBody.parse(req.body)
-    const result = await UploadsService.signUploadUrl({ ...body, userId: req.user.id })
+    const result = await UploadsService.signUploadUrl({ ...body, userId: req.authUser.id })
     return reply.send(result)
   },
 }

@@ -1,14 +1,20 @@
 'use client'
 import { useState } from 'react'
+import type { Role } from '@favour/shared'
 import { createSupabaseBrowser } from '@/lib/supabase'
+import { api } from '@/lib/api'
+import { FEED_ROUTE, PROVIDER_DASHBOARD_ROUTE, VERIFY_ROUTE } from '@/lib/app-state'
+import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/Button'
 import { FieldLabel } from '@/components/ui/FieldLabel'
 import { ShieldCheck } from 'lucide-react'
 
 export default function LoginPage() {
+  const devAuthEnabled = process.env.NEXT_PUBLIC_DEV_AUTH === 'true'
   const [phone, setPhone] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const setSession = useAuthStore((state) => state.setSession)
   const supabase = createSupabaseBrowser()
 
   async function handleSend() {
@@ -19,7 +25,28 @@ export default function LoginPage() {
     setLoading(false)
     if (error) { setError(error.message); return }
     sessionStorage.setItem('favour_phone', formatted)
-    window.location.href = '/verify'
+    window.location.href = VERIFY_ROUTE
+  }
+
+  async function handleDevLogin(identity: 'customer' | 'provider') {
+    setLoading(true)
+    setError(null)
+
+    try {
+      const session = await api.auth.devLogin(identity)
+      setSession({
+        userId: session.userId,
+        role: session.role as Role,
+        providerId: session.providerId,
+        accessToken: session.accessToken,
+      })
+      window.location.href =
+        session.role === 'PROVIDER' ? PROVIDER_DASHBOARD_ROUTE : FEED_ROUTE
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to start demo session.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -60,6 +87,25 @@ export default function LoginPage() {
         <Button fullWidth disabled={phone.length < 9 || loading} onClick={handleSend}>
           {loading ? 'Sending…' : 'Send Secure Code'}
         </Button>
+
+        {devAuthEnabled && (
+          <div className="mt-5 rounded-[12px] border border-ui bg-surface p-4">
+            <p className="font-mono text-[11px] font-bold tracking-[0.08em] text-favour-blue">
+              DEV QUICK LOGIN
+            </p>
+            <p className="mt-1 font-body text-[12px] text-ink-700">
+              Use seeded accounts for local MVP testing without OTP.
+            </p>
+            <div className="mt-3 flex flex-col gap-2">
+              <Button fullWidth disabled={loading} onClick={() => handleDevLogin('customer')}>
+                Demo Customer
+              </Button>
+              <Button fullWidth variant="ghost" disabled={loading} onClick={() => handleDevLogin('provider')}>
+                Demo Provider
+              </Button>
+            </div>
+          </div>
+        )}
 
         <div className="flex items-center justify-center gap-2 mt-5">
           <ShieldCheck size={14} className="text-ink-400 shrink-0" aria-hidden="true" />

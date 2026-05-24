@@ -126,6 +126,7 @@ export default function BookPage({ params }: BookPageProps) {
           datetime: datetimeIso,
           address: address.trim(),
           notes: notes.trim() || undefined,
+          isUrgent: false,
         },
         accessToken
       )

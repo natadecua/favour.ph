@@ -63,12 +63,13 @@ export interface Booking {
   datetime: string
   address: string
   notes: string | null
-  isUrgent: boolean
+  // Optional until the database schema and older fixtures catch up with v0.2 fields.
+  isUrgent?: boolean
   // Populated when status is RESCHEDULE_REQUESTED; cleared on accept/reject.
-  proposedDatetime: string | null
-  proposedDatetimeBy: RescheduleProposer | null
+  proposedDatetime?: string | null
+  proposedDatetimeBy?: RescheduleProposer | null
   // Set when a Quote is ACCEPTED. Lets the booking carry its agreed price without re-joining quotes.
-  acceptedQuoteId: string | null
+  acceptedQuoteId?: string | null
   createdAt: string
   // Populated when fetching list/detail (Prisma include)
   service?: { id: string; name: string; category: string; priceMin: number; priceMax: number }
