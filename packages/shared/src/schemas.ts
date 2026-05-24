@@ -11,6 +11,7 @@ export const CreateBookingSchema = z.object({
   ),
   address: z.string().min(10, 'Address too short').max(200),
   notes: z.string().max(500).optional(),
+  isUrgent: z.boolean().optional().default(false),
 })
 
 export const RespondToBookingSchema = z.object({
@@ -40,6 +41,49 @@ export const ProviderFeedQuerySchema = z.object({
   page: z.coerce.number().int().positive().optional().default(1),
   limit: z.coerce.number().int().max(20).optional().default(10),
   q: z.string().trim().max(100).optional(),
+  // When true, return only providers available now (online + no conflicting booking today).
+  urgent: z.coerce.boolean().optional(),
+})
+
+// ── Quote (provider proposes price → customer accepts/rejects) ─────────────
+
+export const CreateQuoteSchema = z.object({
+  bookingId: z.string().uuid(),
+  amount: z.number().int().positive('Amount must be greater than zero').max(1_000_000),
+  notes: z.string().trim().max(500).optional(),
+})
+
+export const RespondToQuoteSchema = z.object({
+  quoteId: z.string().uuid(),
+  action: z.enum(['accept', 'reject']),
+  message: z.string().trim().max(300).optional(),
+})
+
+// ── Reschedule (either party proposes a new datetime) ──────────────────────
+
+export const RequestRescheduleSchema = z.object({
+  proposedDatetime: z
+    .string()
+    .datetime()
+    .refine(d => new Date(d) > new Date(), 'Proposed time must be in the future'),
+  reason: z.string().trim().max(300).optional(),
+})
+
+export const RespondToRescheduleSchema = z.object({
+  action: z.enum(['accept', 'reject']),
+  message: z.string().trim().max(300).optional(),
+})
+
+// ── Saved providers (customer favourites) ──────────────────────────────────
+
+export const SaveProviderSchema = z.object({
+  providerId: z.string().uuid(),
+})
+
+// ── Anti-leakage chat scan ─────────────────────────────────────────────────
+
+export const ScanMessageSchema = z.object({
+  body: z.string().min(1).max(1000),
 })
 
 export const CreateProviderSchema = z.object({
@@ -85,3 +129,9 @@ export type CreateReviewInput = z.infer<typeof CreateReviewSchema>
 export type CreateChatMessageInput = z.infer<typeof CreateChatMessageSchema>
 export type ProviderFeedQuery = z.infer<typeof ProviderFeedQuerySchema>
 export type CreateProviderInput = z.infer<typeof CreateProviderSchema>
+export type CreateQuoteInput = z.infer<typeof CreateQuoteSchema>
+export type RespondToQuoteInput = z.infer<typeof RespondToQuoteSchema>
+export type RequestRescheduleInput = z.infer<typeof RequestRescheduleSchema>
+export type RespondToRescheduleInput = z.infer<typeof RespondToRescheduleSchema>
+export type SaveProviderInput = z.infer<typeof SaveProviderSchema>
+export type ScanMessageInput = z.infer<typeof ScanMessageSchema>

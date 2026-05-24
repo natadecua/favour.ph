@@ -6,8 +6,19 @@ export type BookingStatus =
   | 'PENDING'
   | 'CONFIRMED'
   | 'DECLINED'
+  | 'RESCHEDULE_REQUESTED'
   | 'COMPLETED'
   | 'CANCELLED'
+
+export type QuoteStatus = 'PROPOSED' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED'
+
+export type RescheduleProposer = 'customer' | 'provider'
+
+export type LeakageReasonType =
+  | 'phone_number'
+  | 'email'
+  | 'external_platform'
+  | 'payment_app'
 
 // ── Core entities ──────────────────────────────────────────────────────────
 
@@ -52,10 +63,45 @@ export interface Booking {
   datetime: string
   address: string
   notes: string | null
+  isUrgent: boolean
+  // Populated when status is RESCHEDULE_REQUESTED; cleared on accept/reject.
+  proposedDatetime: string | null
+  proposedDatetimeBy: RescheduleProposer | null
+  // Set when a Quote is ACCEPTED. Lets the booking carry its agreed price without re-joining quotes.
+  acceptedQuoteId: string | null
   createdAt: string
   // Populated when fetching list/detail (Prisma include)
   service?: { id: string; name: string; category: string; priceMin: number; priceMax: number }
   provider?: { id: string; displayName: string }
+}
+
+export interface Quote {
+  id: string
+  bookingId: string
+  // userId of the party proposing. Usually provider, but customer counter-quotes are allowed.
+  proposedById: string
+  amount: number
+  notes: string | null
+  status: QuoteStatus
+  proposedAt: string
+  respondedAt: string | null
+  expiresAt: string | null
+}
+
+export interface SavedProvider {
+  userId: string
+  providerId: string
+  savedAt: string
+}
+
+export interface AntiLeakageScanResult {
+  flagged: boolean
+  confidence: 'low' | 'medium' | 'high'
+  reasons: Array<{
+    type: LeakageReasonType
+    match: string
+    explanation: string
+  }>
 }
 
 export interface Review {
@@ -117,3 +163,7 @@ export type ServiceCategory =
   | 'carpentry'
   | 'painting'
   | 'appliance_repair'
+  | 'pest_control'
+  | 'cctv'
+  | 'carwash'
+  | 'laundry'
