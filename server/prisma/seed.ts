@@ -1,5 +1,8 @@
 import { PrismaClient } from '@prisma/client'
 
+const loadEnvFile = (process as typeof process & { loadEnvFile?: (path?: string) => void }).loadEnvFile
+loadEnvFile?.('.env')
+
 const prisma = new PrismaClient()
 
 const sampleProviders = [

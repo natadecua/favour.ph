@@ -81,6 +81,14 @@ export const api = {
       }),
   },
   auth: {
+    devLogin: (identity: 'customer' | 'provider') =>
+      request<{ accessToken: string; userId: string; role: string; providerId: string | null }>(
+        '/auth/dev-login',
+        {
+          method: 'POST',
+          body: JSON.stringify({ identity }),
+        }
+      ),
     me: (token: string) =>
       request<{ userId: string; role: string; providerId: string | null }>('/auth/me', {
         headers: { Authorization: `Bearer ${token}` },

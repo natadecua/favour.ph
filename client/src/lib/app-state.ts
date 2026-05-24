@@ -54,6 +54,10 @@ export const mockCustomerBookings: Booking[] = [
     datetime: '2026-05-28T09:00:00.000Z',
     address: 'P. Burgos Street, Batangas City',
     notes: 'Sample booking while live appointments are still empty.',
+    isUrgent: false,
+    proposedDatetime: null,
+    proposedDatetimeBy: null,
+    acceptedQuoteId: null,
     createdAt: '2026-05-23T00:00:00.000Z',
     service: {
       id: 'mock-service-plumbing',
@@ -77,6 +81,10 @@ export const mockCustomerBookings: Booking[] = [
     datetime: '2026-05-30T05:30:00.000Z',
     address: 'Alangilan, Batangas City',
     notes: null,
+    isUrgent: false,
+    proposedDatetime: null,
+    proposedDatetimeBy: null,
+    acceptedQuoteId: null,
     createdAt: '2026-05-23T00:00:00.000Z',
     service: {
       id: 'mock-service-cleaning',

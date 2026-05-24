@@ -5,6 +5,7 @@ const statusConfig: Record<BookingStatus, { label: string; color: 'blue' | 'gree
   PENDING:   { label: 'PENDING',   color: 'amber' },
   CONFIRMED: { label: 'CONFIRMED', color: 'blue'  },
   DECLINED:  { label: 'DECLINED',  color: 'dark'  },
+  RESCHEDULE_REQUESTED: { label: 'RESCHEDULE', color: 'amber' },
   COMPLETED: { label: 'COMPLETED', color: 'green' },
   CANCELLED: { label: 'CANCELLED', color: 'dark'  },
 }

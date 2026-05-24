@@ -27,7 +27,14 @@ export const BookingsService = {
 
   async create(
     customerId: string,
-    data: { providerId: string; serviceId: string; datetime: string; address: string; notes?: string },
+    data: {
+      providerId: string
+      serviceId: string
+      datetime: string
+      address: string
+      isUrgent?: boolean
+      notes?: string
+    },
     repo: BookingsRepo
   ) {
     return repo.create({
@@ -37,7 +44,7 @@ export const BookingsService = {
       serviceId: data.serviceId,
       datetime: new Date(data.datetime),
       address: data.address,
-      notes: data.notes,
+      ...(data.notes ? { notes: data.notes } : {}),
     })
   },
 

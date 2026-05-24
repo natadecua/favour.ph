@@ -10,18 +10,29 @@ import { createBookingsRepo } from '../repositories/bookings.repo.js'
 export const BookingsController = {
   async list(req: FastifyRequest<{ Querystring: { scope?: string } }>, reply: FastifyReply) {
     const repo = createBookingsRepo(req.server.prisma)
-    if (req.query.scope === 'provider' && req.user.providerId) {
-      const bookings = await repo.findByProvider(req.user.providerId)
+    if (req.query.scope === 'provider' && req.authUser.providerId) {
+      const bookings = await repo.findByProvider(req.authUser.providerId)
       return reply.send(bookings)
     }
-    const bookings = await repo.findByCustomer(req.user.id)
+    const bookings = await repo.findByCustomer(req.authUser.id)
     return reply.send(bookings)
   },
 
   async create(req: FastifyRequest, reply: FastifyReply) {
     const body = CreateBookingSchema.parse(req.body)
     const repo = createBookingsRepo(req.server.prisma)
-    const booking = await BookingsService.create(req.user.id, body, repo)
+    const booking = await BookingsService.create(
+      req.authUser.id,
+      {
+        serviceId: body.serviceId,
+        providerId: body.providerId,
+        datetime: body.datetime,
+        address: body.address,
+        isUrgent: body.isUrgent,
+        ...(body.notes ? { notes: body.notes } : {}),
+      },
+      repo
+    )
     return reply.code(201).send(booking)
   },
 

@@ -1349,4 +1349,127 @@ The following features are explicitly excluded from MVP. They are planned for po
 
 ---
 
+## 12. Spec Amendments (v0.2)
+
+The following amendments extend the v0.1 spec based on review of PH home-services market realities and risks surfaced during pre-development gap audit. They are the source-of-truth additions reflected in `@favour/shared` types/constants/schemas. All existing v0.1 sections remain valid unless overridden here.
+
+### 12.1 Quote Flow (new feature)
+
+Real PH home services are quote-based — the provider arrives, diagnoses, then prices. The original `priceMin/priceMax` model treated this as fixed, which would force every booking to be re-negotiated off-platform. The Quote entity makes price negotiation a first-class platform mechanic.
+
+**New entity: `Quote`**
+
+| Field | Type | Notes |
+|---|---|---|
+| id | UUID | |
+| bookingId | FK → Booking | |
+| proposedById | FK → User | Usually provider; customer counter-quotes allowed |
+| amount | integer | PHP whole pesos |
+| notes | text | Why this price (e.g., "Includes freon refill") |
+| status | enum | `PROPOSED` \| `ACCEPTED` \| `REJECTED` \| `EXPIRED` |
+| proposedAt | timestamp | |
+| respondedAt | timestamp | Nullable |
+| expiresAt | timestamp | Default 24h from proposal |
+
+**Lifecycle:** Provider (or customer) creates Quote → other party Accepts or Rejects. Multiple Quotes per Booking are allowed (counter-quoting). `Booking.acceptedQuoteId` points to the final accepted Quote.
+
+**RLS:** Read/write restricted to the booking's customer + provider. Insert allowed only when booking status is `CONFIRMED` or `RESCHEDULE_REQUESTED`.
+
+### 12.2 Reschedule Sub-Flow (new sub-flow)
+
+PH customers reschedule constantly (work shifts, weather, brownouts). The cancel-then-rebook loop in v0.1 forced score-damaging cancellations for legitimate timing changes. Reschedule keeps the booking alive.
+
+**Changes to Booking entity:**
+
+| New field | Type | Notes |
+|---|---|---|
+| proposedDatetime | timestamp \| null | Set during `RESCHEDULE_REQUESTED`, cleared on accept/reject |
+| proposedDatetimeBy | enum \| null | `customer` \| `provider` |
+
+**New status:** `RESCHEDULE_REQUESTED` — booking transitions here from `CONFIRMED` when either party requests a new time. Other party accepts (→ `CONFIRMED` with `datetime` updated) or rejects (→ `CONFIRMED` with original `datetime` retained).
+
+**Chat unlock:** `RESCHEDULE_REQUESTED` is added to `CHAT_UNLOCK_STATUSES` so the two parties can coordinate the new time in-thread.
+
+### 12.3 Urgent / Same-Day Booking (feature flag)
+
+The stressed-homeowner persona (broken aircon at 8pm) is half the user base. The default 4-hour provider response window was too slow for this case.
+
+**Changes to Booking entity:**
+
+| New field | Type | Notes |
+|---|---|---|
+| isUrgent | boolean | Default `false` |
+
+**Feed behaviour:** A new `urgent=true` query parameter on the listings feed returns only providers available now (online + no conflicting booking within `URGENT_BOOKING_THRESHOLD_HOURS` = 6h).
+
+**Notification:** Providers receive a high-priority SMS when an urgent booking targets them (bypassing email-only batching).
+
+### 12.4 Saved Providers (Favourites)
+
+The planned-browser persona compares options across multiple sessions. Without favourites they re-search every time.
+
+**New join entity: `SavedProvider`**
+
+| Field | Type | Notes |
+|---|---|---|
+| userId | FK → User | |
+| providerId | FK → Provider | |
+| savedAt | timestamp | |
+
+Composite primary key on `(userId, providerId)`. Surfaced as a "Saved" tab on the customer's `/my-bookings` screen.
+
+### 12.5 Expanded Service Categories
+
+The v0.1 7-category list was incomplete for actual PH home-service demand. The following are added:
+
+- `pest_control` (rodents, termites, mosquito fogging — common in PH)
+- `cctv` (residential CCTV installation)
+- `carwash` (mobile carwash; on-location)
+- `laundry` (pickup-and-deliver laundry service)
+
+Providers may tag up to 3 categories. The feed filter UI updates to accommodate the expanded set.
+
+### 12.6 Anti-Leakage Chat Scanner (P0, not optional AI)
+
+Off-platform solicitation in chat is the existential threat to the business model. v0.1 treated this as ToS enforcement only — too late, too manual. The scanner moves enforcement upstream into the chat send path.
+
+**Mechanism:** Every chat message is passed through a pure-function scanner (regex pass for PH phone formats, email, common payment apps and platforms) before persistence. Returns `AntiLeakageScanResult { flagged, confidence, reasons[] }`.
+
+**Behaviour:**
+- `flagged: true, confidence: high` → message is sent but accompanied by an inline warning ("This looks like a phone number — sharing contact info off-platform is a ToS violation"). The flag is recorded against the sender's `tos_violations` log for admin review.
+- `flagged: true, confidence: low|medium` → silent flag for admin review only; user sees no warning.
+
+**Regex coverage (initial):**
+- PH phone: `09\d{9}`, `\+639\d{9}`, formatted variants with spaces/dashes
+- Email: standard RFC pattern
+- Payment apps: `gcash`, `maya`, `paymaya`, `paypal`, `wise`
+- External platforms: `messenger`, `viber`, `whatsapp`, `telegram`, `fb.com`, `facebook.com`
+
+The function lives in `@favour/shared` so client (pre-send warning) and server (persistence guard + admin flag) share the exact same rules.
+
+### 12.7 Updated Booking State Machine
+
+```
+PENDING ──accept──► CONFIRMED ──complete──► COMPLETED
+   │                    │
+   │ decline            │ reschedule
+   ▼                    ▼
+DECLINED            RESCHEDULE_REQUESTED ──accept──► CONFIRMED (new datetime)
+                        │                ──reject──► CONFIRMED (old datetime)
+                        │
+                        ▼
+                    CANCELLED  (either party, any non-terminal state)
+```
+
+Terminal states: `DECLINED`, `COMPLETED`, `CANCELLED`. All others are transitional.
+
+### 12.8 Type & Schema Locations
+
+All amendments are reflected in:
+- `packages/shared/src/types.ts` — `BookingStatus`, `QuoteStatus`, `Booking`, `Quote`, `SavedProvider`, `AntiLeakageScanResult`, expanded `ServiceCategory`
+- `packages/shared/src/constants.ts` — `BOOKING_STATUSES`, `QUOTE_STATUSES`, `SERVICE_CATEGORIES`, `SERVICE_CATEGORY_LABELS`, `CHAT_UNLOCK_STATUSES`, `QUOTE_EXPIRY_HOURS`, `URGENT_BOOKING_THRESHOLD_HOURS`
+- `packages/shared/src/schemas.ts` — `CreateQuoteSchema`, `RespondToQuoteSchema`, `RequestRescheduleSchema`, `RespondToRescheduleSchema`, `SaveProviderSchema`, `ScanMessageSchema`, updated `CreateBookingSchema` (adds `isUrgent`), updated `ProviderFeedQuerySchema` (adds `urgent`)
+
+---
+
 *This document is a working draft. Review with James (backend) and Milo (PM) before development begins. Flag gaps, conflicts, or changes as comments before locking scope.*
